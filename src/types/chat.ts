@@ -1,0 +1,37 @@
+export type UserPresenceStatus = "online" | "offline" | "away";
+
+export interface UserSummary {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl?: string;
+  status: UserPresenceStatus;
+  statusMessage?: string;
+}
+
+export type ConversationType = "direct" | "group";
+
+export type ConversationCategory = "all" | "unread" | "favorites" | "archived";
+
+export interface MessagePreview {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string; // ISO string
+  isUnread: boolean;
+}
+
+export interface ConversationPreview {
+  id: string;
+  title: string;
+  type: ConversationType;
+  avatarUrl?: string;
+  participants: UserSummary[];
+  lastMessage?: MessagePreview;
+  unreadCount: number;
+  isFavorite: boolean;
+  isArchived: boolean;
+  isOnline?: boolean;
+  updatedAt: string; // ISO string
+}
