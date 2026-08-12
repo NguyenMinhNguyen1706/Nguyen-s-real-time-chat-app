@@ -26,10 +26,10 @@ test.describe("Chat View + Message Timeline", () => {
     // Verify Typing Indicator
     await expect(desktopContainer.getByText("Sarah Chen is typing...")).toBeVisible();
 
-    // Verify Composer Placeholder
+    // Verify Active Message Composer
     await expect(
-      desktopContainer.getByPlaceholder("Type a message... (Composer coming in TASK 05)"),
-    ).toBeDisabled();
+      desktopContainer.getByPlaceholder("Write a message to Sarah Chen..."),
+    ).toBeVisible();
   });
 
   test("renders empty chat state for conversation with no messages", async ({ page }) => {

@@ -26,4 +26,18 @@ describe("MockMessageRepository", () => {
     const noTypers = await repo.getTypingUsers("conv_2");
     expect(noTypers).toEqual([]);
   });
+
+  it("sends a message and appends it to mock messages map", async () => {
+    const created = await repo.sendMessage({
+      conversationId: "conv_1",
+      content: "Hello from unit test!",
+    });
+
+    expect(created.id).toContain("client_msg_");
+    expect(created.content).toBe("Hello from unit test!");
+    expect(created.status).toBe("pending");
+
+    const updatedList = await repo.getMessagesByConversationId("conv_1");
+    expect(updatedList.some((m) => m.id === created.id)).toBe(true);
+  });
 });
