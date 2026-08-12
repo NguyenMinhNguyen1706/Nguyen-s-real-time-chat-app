@@ -76,7 +76,53 @@ When full repository integration occurs in upcoming tasks:
 
 ---
 
-## 3. Upcoming Backend Phases
+## 3. TASK 11.1 Security Corrections
+
+The following issues were identified and fixed during TASK 11.1 RLS hardening:
+
+1. **CRITICAL — `conversation_members` INSERT policy was effectively `TO authenticated`**: The `OR auth.uid() IS NOT NULL` clause allowed any authenticated user to insert any user into any conversation. Fixed to require `auth.uid() = user_id` (bootstrap) OR existing `owner/admin` role.
+2. **CRITICAL — `conversation_members` SELECT policy had infinite recursion**: Self-referential subquery on same RLS-protected table. Fixed with two non-recursive policies: direct ownership check + `IN` subquery pattern.
+3. **HIGH — `messages` UPDATE policy missing `WITH CHECK`**: Allowed `sender_id` mutation (impersonation) and `conversation_id` migration. Fixed with `WITH CHECK (auth.uid() = sender_id AND EXISTS member check)`.
+4. **HIGH — Seed data in migration**: Profiles FK → `auth.users.id` but seed didn't create `auth.users` rows. Moved seed to `supabase/seed.sql` with proper `auth.users` + `auth.identities` bootstrap.
+5. **MEDIUM — Missing `conversation_members` DELETE policy**: Added policy allowing self-removal or owner/admin removal.
+6. **MEDIUM — Missing `conversations` UPDATE `WITH CHECK`**: Added bidirectional authorization check.
+7. **LOW — Missing `updated_at` auto-trigger**: Added `handle_updated_at()` trigger function for `profiles`, `conversations`, `messages`.
+
+---
+
+## 4. Data Flow Architecture
+
+### Current (Frontend Mock)
+
+```
+UI Components
+    ↓
+ChatContext (React Context)
+    ↓
+IConversationRepository / IMessageRepository (Interface)
+    ↓
+MockConversationRepository / MockMessageRepository (In-memory)
+```
+
+### Future (Supabase Backend)
+
+```
+UI Components
+    ↓
+ChatContext / Application Services
+    ↓
+IConversationRepository / IMessageRepository (Interface)
+    ↓
+SupabaseConversationRepository / SupabaseMessageRepository
+    ↓
+Supabase Client (@supabase/ssr)
+    ↓
+PostgreSQL (RLS-protected) + Supabase Realtime + Supabase Storage
+```
+
+---
+
+## 5. Upcoming Backend Phases
 
 - **TASK 12**: Authentication + Supabase Session Integration (NOT IMPLEMENTED YET)
 - **TASK 13**: Database Repository Integration (NOT IMPLEMENTED YET)
