@@ -2,10 +2,11 @@
 
 import { PanelLeft } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { ConversationColumn } from "@/components/layout/conversation-column";
 import { MainContent } from "@/components/layout/main-content";
 import { NavRail } from "@/components/layout/nav-rail";
+import { SearchModal } from "@/components/search/search-modal";
+import { Button } from "@/components/ui/button";
 import { ChatProvider, useChat } from "@/context/chat-context";
 
 function AppShellContent() {
@@ -13,6 +14,9 @@ function AppShellContent() {
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background">
+      {/* Search Modal Overlay */}
+      <SearchModal />
+
       {/* Desktop 3-Region Layout */}
       <div className="hidden md:flex h-full w-full overflow-hidden">
         <NavRail />

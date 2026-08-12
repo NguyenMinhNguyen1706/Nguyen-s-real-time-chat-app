@@ -42,7 +42,7 @@ export function MessageHoverActions({
     <div
       role="region"
       aria-label="Message action toolbar"
-      className={`absolute top-1/2 -translate-y-1/2 z-10 hidden group-hover:flex items-center gap-0.5 rounded-full border bg-background/95 p-0.5 shadow-xs backdrop-blur-xs transition-opacity ${
+      className={`absolute top-1/2 -translate-y-1/2 z-10 flex items-center gap-0.5 rounded-full border bg-background/95 p-0.5 shadow-xs backdrop-blur-xs transition-all duration-200 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto focus-within:pointer-events-auto ${
         isOutgoing ? "-left-28" : "-right-28"
       }`}
     >
