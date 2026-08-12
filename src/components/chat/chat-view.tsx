@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatHeader } from "@/components/chat/chat-header";
-import { ComposerPlaceholder } from "@/components/chat/composer-placeholder";
+import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageTimeline } from "@/components/chat/message-timeline";
 import type { ConversationPreview } from "@/types/chat";
 
@@ -14,7 +14,7 @@ export function ChatView({ conversation }: ChatViewProps) {
     <div className="flex h-full flex-1 flex-col overflow-hidden bg-background">
       <ChatHeader conversation={conversation} />
       <MessageTimeline />
-      <ComposerPlaceholder />
+      <MessageComposer />
     </div>
   );
 }

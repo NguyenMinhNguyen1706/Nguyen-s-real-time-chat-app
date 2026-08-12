@@ -15,7 +15,21 @@ export type ConversationCategory = "all" | "unread" | "favorites" | "archived";
 
 export type ConversationSortOption = "newest" | "unread" | "name";
 
-export type MessageStatus = "sent" | "delivered" | "read";
+export type MessageStatus = "pending" | "sent" | "delivered" | "read" | "failed";
+
+export interface AttachmentPreview {
+  id: string;
+  name: string;
+  size: number; // in bytes
+  type: string; // MIME type
+  url?: string;
+}
+
+export interface CreateMessageInput {
+  conversationId: string;
+  content: string;
+  attachment?: AttachmentPreview;
+}
 
 export interface Message {
   id: string;
@@ -28,6 +42,7 @@ export interface Message {
   status: MessageStatus;
   isUnread?: boolean;
   isEdited?: boolean;
+  attachment?: AttachmentPreview;
 }
 
 export interface MessageGroup {

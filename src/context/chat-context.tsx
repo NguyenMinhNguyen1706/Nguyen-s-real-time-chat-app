@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { conversationRepository } from "@/repositories/conversation-repository";
 import { messageRepository } from "@/repositories/message-repository";
 import type {
+  AttachmentPreview,
   ConversationCategory,
   ConversationPreview,
   ConversationSortOption,
@@ -39,6 +40,7 @@ interface ChatContextType {
   togglePinConversation: (id: string) => Promise<void>;
   toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
+  sendMessage: (content: string, attachment?: AttachmentPreview) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -153,6 +155,64 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     await fetchLatestData();
   };
 
+  const handleSendMessage = async (content: string, attachment?: AttachmentPreview) => {
+    if (!selectedConversationId) return;
+    const trimmed = content.trim();
+    if (!trimmed && !attachment) return;
+
+    const optimisticMsg: Message = {
+      id: `client_msg_${Date.now()}`,
+      conversationId: selectedConversationId,
+      senderId: currentUser?.id ?? "usr_current",
+      senderName: currentUser?.name ?? "Nguyen Minh",
+      content: trimmed,
+      timestamp: new Date().toISOString(),
+      status: "pending",
+      attachment,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === selectedConversationId
+          ? {
+              ...c,
+              lastMessage: {
+                id: optimisticMsg.id,
+                senderId: optimisticMsg.senderId,
+                senderName: optimisticMsg.senderName,
+                content:
+                  optimisticMsg.content ||
+                  (attachment ? `Sent attachment: ${attachment.name}` : ""),
+                timestamp: optimisticMsg.timestamp,
+                isUnread: false,
+              },
+              updatedAt: optimisticMsg.timestamp,
+            }
+          : c,
+      ),
+    );
+
+    const created = await messageRepository.sendMessage({
+      conversationId: selectedConversationId,
+      content: trimmed,
+      attachment,
+    });
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticMsg.id ? { ...m, id: created.id, status: "sent" } : m)),
+      );
+    }, 300);
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === created.id ? { ...m, status: "delivered" } : m)),
+      );
+    }, 600);
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -180,6 +240,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         togglePinConversation: handleTogglePin,
         toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,
+        sendMessage: handleSendMessage,
       }}
     >
       {children}
