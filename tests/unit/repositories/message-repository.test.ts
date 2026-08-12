@@ -40,4 +40,42 @@ describe("MockMessageRepository", () => {
     const updatedList = await repo.getMessagesByConversationId("conv_1");
     expect(updatedList.some((m) => m.id === created.id)).toBe(true);
   });
+
+  it("toggles emoji reaction on a message", async () => {
+    const messages = await repo.getMessagesByConversationId("conv_1");
+    const targetMsg = messages[0];
+
+    const updated1 = await repo.toggleReaction(targetMsg.id, "👍", "usr_current", "Nguyen Minh");
+    expect(updated1?.reactions?.some((r) => r.emoji === "👍" && r.userId === "usr_current")).toBe(
+      true,
+    );
+
+    // Toggle off
+    const updated2 = await repo.toggleReaction(targetMsg.id, "👍", "usr_current", "Nguyen Minh");
+    expect(updated2?.reactions?.some((r) => r.emoji === "👍" && r.userId === "usr_current")).toBe(
+      false,
+    );
+  });
+
+  it("edits message content and sets isEdited flag", async () => {
+    const messages = await repo.getMessagesByConversationId("conv_1");
+    const targetMsg = messages[0];
+
+    const edited = await repo.editMessage(targetMsg.id, "Edited content from test");
+    expect(edited?.content).toBe("Edited content from test");
+    expect(edited?.isEdited).toBe(true);
+  });
+
+  it("deletes a message from repository state", async () => {
+    const created = await repo.sendMessage({
+      conversationId: "conv_1",
+      content: "Message to be deleted",
+    });
+
+    const deleted = await repo.deleteMessage(created.id);
+    expect(deleted).toBe(true);
+
+    const listAfter = await repo.getMessagesByConversationId("conv_1");
+    expect(listAfter.some((m) => m.id === created.id)).toBe(false);
+  });
 });

@@ -6,14 +6,14 @@ import { Paperclip, Send } from "lucide-react";
 import { AttachmentChip } from "@/components/chat/attachment-chip";
 import { ComposerTextarea } from "@/components/chat/composer-textarea";
 import { EmojiPickerPopover } from "@/components/chat/emoji-picker-popover";
-import { ReplyPreviewPlaceholder } from "@/components/chat/reply-preview-placeholder";
+import { ReplyPreview } from "@/components/chat/reply-preview";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useChat } from "@/context/chat-context";
 import type { AttachmentPreview } from "@/types/chat";
 
 export function MessageComposer() {
-  const { sendMessage, selectedConversation } = useChat();
+  const { sendMessage, selectedConversation, replyingToMessage, setReplyingToMessage } = useChat();
   const [content, setContent] = useState("");
   const [attachment, setAttachment] = useState<AttachmentPreview | undefined>(undefined);
   const [isSending, setIsSending] = useState(false);
@@ -85,9 +85,9 @@ export function MessageComposer() {
   return (
     <footer
       aria-label="Message composer"
-      className="border-t p-3 bg-background/95 backdrop-blur-xs flex flex-col gap-2"
+      className="border-t p-3 bg-background/95 backdrop-blur-xs flex flex-col gap-1.5"
     >
-      <ReplyPreviewPlaceholder />
+      <ReplyPreview message={replyingToMessage} onCancel={() => setReplyingToMessage(null)} />
 
       {attachment && (
         <div className="px-1 pt-1">
