@@ -1,12 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-test("home page renders the desktop application shell", async ({ page }) => {
+test("renders initial conversation list with pinned section", async ({ page }) => {
   await page.goto("/");
 
-  // Check 3-region layout elements
   await expect(page.getByRole("heading", { name: "Conversations" }).first()).toBeVisible();
-  await expect(page.getByText("Realtime Chat").first()).toBeVisible();
-  await expect(page.getByPlaceholder("Search messages...").first()).toBeVisible();
+  await expect(page.getByText("Pinned").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first(),
   ).toBeVisible();
@@ -15,49 +13,79 @@ test("home page renders the desktop application shell", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("selecting a conversation updates the main workspace state", async ({ page }) => {
+test("filters by unread tab", async ({ page }) => {
   await page.goto("/");
 
-  // Select "Sarah Chen" conversation
-  const sarahRow = page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first();
-  await expect(sarahRow).toBeVisible();
-  await sarahRow.click();
+  const unreadTab = page.getByRole("tab", { name: "Unread" }).first();
+  await unreadTab.click();
 
-  // Verify workspace header updates with selected conversation title
   await expect(
-    page.getByRole("heading", { name: "Sarah Chen", exact: true }).first(),
+    page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first(),
   ).toBeVisible();
-  await expect(page.getByText("Active now").first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Alex Rivers/i }),
+  ).toHaveCount(0);
 });
 
-test("toggles theme menu options", async ({ page }) => {
+test("filters by favorites tab", async ({ page }) => {
   await page.goto("/");
 
-  const themeToggle = page.getByRole("button", { name: "Toggle theme" }).first();
-  await expect(themeToggle).toBeVisible();
-  await themeToggle.click();
+  const favTab = page.getByRole("tab", { name: "Favorites" }).first();
+  await favTab.click();
 
-  await expect(page.getByRole("menuitem", { name: "Light" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Dark" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "System" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first(),
+  ).toBeVisible();
 });
 
-test("mobile responsive shell handles list selection and navigation drawer", async ({ page }) => {
+test("filters by archived tab", async ({ page }) => {
+  await page.goto("/");
+
+  const archivedTab = page.getByRole("tab", { name: "Archived" }).first();
+  await archivedTab.click();
+
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Archived Project Alpha/i }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Sarah Chen/i }),
+  ).toHaveCount(0);
+});
+
+test("search filters conversation list and shows empty search state when no match", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const searchInput = page.getByPlaceholder("Search messages & contacts...").first();
+  await searchInput.fill("NonExistentNameXYZ");
+
+  await expect(page.getByText("No conversations found").first()).toBeVisible();
+  await expect(page.getByText('No matches for "NonExistentNameXYZ"').first()).toBeVisible();
+
+  // Clear search filter
+  await page.getByRole("button", { name: "Clear search filter" }).first().click();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first(),
+  ).toBeVisible();
+});
+
+test("mobile responsive shell handles conversation list selection and back navigation", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto("/");
 
-  // Verify mobile header & conversation list
-  await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
   const mobileSarahButton = page
     .locator("div.md\\:hidden")
     .getByRole("button", { name: /Open conversation with Sarah Chen/i });
   await expect(mobileSarahButton).toBeVisible();
 
-  // Select a conversation on mobile -> switches to chat view
+  // Select conversation on mobile
   await mobileSarahButton.click();
   await expect(page.getByRole("heading", { name: "Sarah Chen", exact: true })).toBeVisible();
 
-  // Click Back button on mobile chat view -> returns to conversation list
+  // Return to conversation list via back button
   const backButton = page.getByRole("button", { name: "Back to conversations" });
   await expect(backButton).toBeVisible();
   await backButton.click();
