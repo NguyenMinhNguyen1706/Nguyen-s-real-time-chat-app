@@ -45,7 +45,9 @@ export function NavRail() {
                     variant={isActive ? "secondary" : "ghost"}
                     size="icon"
                     className={`h-10 w-10 rounded-lg ${
-                      isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : "text-muted-foreground"
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-muted-foreground"
                     }`}
                     aria-label={item.label}
                     onClick={() => setNavTab(item.id)}
@@ -68,7 +70,9 @@ export function NavRail() {
             <TooltipTrigger asChild>
               <div className="relative">
                 <Avatar className="h-9 w-9 border border-border">
-                  {currentUser.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}
+                  {currentUser.avatarUrl && (
+                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                  )}
                   <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-background" />

@@ -7,8 +7,12 @@ test("home page renders the desktop application shell", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Conversations" }).first()).toBeVisible();
   await expect(page.getByText("Realtime Chat").first()).toBeVisible();
   await expect(page.getByPlaceholder("Search messages...").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Open conversation with Frontend Engineering Team/i }).first()).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Sarah Chen/i }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open conversation with Frontend Engineering Team/i }).first(),
+  ).toBeVisible();
 });
 
 test("selecting a conversation updates the main workspace state", async ({ page }) => {
@@ -20,7 +24,9 @@ test("selecting a conversation updates the main workspace state", async ({ page 
   await sarahRow.click();
 
   // Verify workspace header updates with selected conversation title
-  await expect(page.getByRole("heading", { name: "Sarah Chen", exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Sarah Chen", exact: true }).first(),
+  ).toBeVisible();
   await expect(page.getByText("Active now").first()).toBeVisible();
 });
 
@@ -42,7 +48,9 @@ test("mobile responsive shell handles list selection and navigation drawer", asy
 
   // Verify mobile header & conversation list
   await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
-  const mobileSarahButton = page.locator("div.md\\:hidden").getByRole("button", { name: /Open conversation with Sarah Chen/i });
+  const mobileSarahButton = page
+    .locator("div.md\\:hidden")
+    .getByRole("button", { name: /Open conversation with Sarah Chen/i });
   await expect(mobileSarahButton).toBeVisible();
 
   // Select a conversation on mobile -> switches to chat view
@@ -54,5 +62,7 @@ test("mobile responsive shell handles list selection and navigation drawer", asy
   await expect(backButton).toBeVisible();
   await backButton.click();
 
-  await expect(page.locator("div.md\\:hidden").getByRole("heading", { name: "Conversations" })).toBeVisible();
+  await expect(
+    page.locator("div.md\\:hidden").getByRole("heading", { name: "Conversations" }),
+  ).toBeVisible();
 });

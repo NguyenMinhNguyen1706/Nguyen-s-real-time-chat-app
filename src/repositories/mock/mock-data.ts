@@ -4,7 +4,8 @@ export const MOCK_CURRENT_USER: UserSummary = {
   id: "usr_current",
   name: "Nguyen Minh",
   username: "nguyenminh",
-  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+  avatarUrl:
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
   status: "online",
   statusMessage: "Building Realtime Chat App 🚀",
 };
@@ -14,7 +15,8 @@ export const MOCK_CONVERSATIONS: ConversationPreview[] = [
     id: "conv_1",
     title: "Sarah Chen",
     type: "direct",
-    avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
     isOnline: true,
     isFavorite: true,
     isArchived: false,
@@ -26,7 +28,8 @@ export const MOCK_CONVERSATIONS: ConversationPreview[] = [
         id: "usr_sarah",
         name: "Sarah Chen",
         username: "sarahc",
-        avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
         status: "online",
       },
     ],
@@ -76,7 +79,8 @@ export const MOCK_CONVERSATIONS: ConversationPreview[] = [
     id: "conv_3",
     title: "Alex Rivers",
     type: "direct",
-    avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
     isOnline: false,
     isFavorite: false,
     isArchived: false,
@@ -88,7 +92,8 @@ export const MOCK_CONVERSATIONS: ConversationPreview[] = [
         id: "usr_alex",
         name: "Alex Rivers",
         username: "alexr",
-        avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+        avatarUrl:
+          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
         status: "offline",
       },
     ],

@@ -1,19 +1,9 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { conversationRepository } from "@/repositories/conversation-repository";
-import type {
-  ConversationCategory,
-  ConversationPreview,
-  UserSummary,
-} from "@/types/chat";
+import type { ConversationCategory, ConversationPreview, UserSummary } from "@/types/chat";
 
 export type NavTab = "chats" | "favorites" | "archived" | "settings";
 
@@ -58,8 +48,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     loadData();
   }, [categoryFilter, searchQuery]);
 
-  const selectedConversation =
-    conversations.find((c) => c.id === selectedConversationId) ?? null;
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId) ?? null;
 
   const handleSelectConversation = (id: string | null) => {
     setSelectedConversationId(id);

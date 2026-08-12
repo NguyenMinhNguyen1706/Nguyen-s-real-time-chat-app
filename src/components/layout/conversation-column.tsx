@@ -160,7 +160,9 @@ function ConversationRow({
         {item.lastMessage && (
           <div className="flex items-center justify-between gap-1 mt-0.5">
             <p className="truncate text-[11px] text-muted-foreground leading-tight">
-              <span className="font-medium text-foreground/80">{item.lastMessage.senderName.split(" ")[0]}: </span>
+              <span className="font-medium text-foreground/80">
+                {item.lastMessage.senderName.split(" ")[0]}:{" "}
+              </span>
               {item.lastMessage.content}
             </p>
             {item.unreadCount > 0 && (

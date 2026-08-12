@@ -3,7 +3,10 @@ import type { ConversationCategory, ConversationPreview, UserSummary } from "@/t
 
 export interface IConversationRepository {
   getCurrentUser(): Promise<UserSummary>;
-  getConversations(category?: ConversationCategory, searchQuery?: string): Promise<ConversationPreview[]>;
+  getConversations(
+    category?: ConversationCategory,
+    searchQuery?: string,
+  ): Promise<ConversationPreview[]>;
   getConversationById(id: string): Promise<ConversationPreview | null>;
 }
 
@@ -14,7 +17,7 @@ export class MockConversationRepository implements IConversationRepository {
 
   async getConversations(
     category: ConversationCategory = "all",
-    searchQuery: string = ""
+    searchQuery: string = "",
   ): Promise<ConversationPreview[]> {
     let result = [...MOCK_CONVERSATIONS];
 
@@ -32,8 +35,7 @@ export class MockConversationRepository implements IConversationRepository {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.lastMessage?.content.toLowerCase().includes(q)
+          c.title.toLowerCase().includes(q) || c.lastMessage?.content.toLowerCase().includes(q),
       );
     }
 
