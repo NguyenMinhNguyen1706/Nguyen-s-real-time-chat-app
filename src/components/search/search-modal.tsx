@@ -101,7 +101,7 @@ export function SearchModal() {
 
   return (
     <Dialog open={searchModalOpen} onOpenChange={setSearchModalOpen}>
-      <DialogContent className="sm:max-w-xl p-0 gap-0 overflow-hidden">
+      <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 pb-2 border-b">
           <DialogTitle className="text-sm font-semibold flex items-center justify-between">
             <span>Search Messages & Contacts</span>
