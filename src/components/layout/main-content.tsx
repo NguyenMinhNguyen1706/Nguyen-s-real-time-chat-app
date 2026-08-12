@@ -3,10 +3,22 @@
 import { Lock, ShieldCheck, Sparkles } from "lucide-react";
 
 import { ChatView } from "@/components/chat/chat-view";
+import { SettingsLayout } from "@/components/settings/settings-layout";
 import { useChat } from "@/context/chat-context";
 
 export function MainContent() {
-  const { selectedConversation } = useChat();
+  const { navTab, selectedConversation } = useChat();
+
+  if (navTab === "settings") {
+    return (
+      <main
+        aria-label="Settings workspace"
+        className="flex h-full flex-1 flex-col overflow-hidden bg-background"
+      >
+        <SettingsLayout />
+      </main>
+    );
+  }
 
   if (!selectedConversation) {
     return <EmptyWorkspaceState />;

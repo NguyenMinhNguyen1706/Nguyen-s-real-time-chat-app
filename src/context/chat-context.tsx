@@ -2,6 +2,14 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import {
+  loadUserProfile,
+  loadUserSettings,
+  resetUserProfileStorage,
+  resetUserSettingsStorage,
+  saveUserProfile,
+  saveUserSettings,
+} from "@/lib/settings-storage";
 import { conversationRepository } from "@/repositories/conversation-repository";
 import { messageRepository } from "@/repositories/message-repository";
 import type {
@@ -13,11 +21,16 @@ import type {
   UserSummary,
 } from "@/types/chat";
 import type { SearchResultItem } from "@/types/search";
+import type { UserProfile, UserSettings } from "@/types/settings";
 
 export type NavTab = "chats" | "favorites" | "archived" | "settings";
+export type SettingsCategoryTab =
+  "profile" | "appearance" | "notifications" | "privacy" | "chat" | "account" | "danger";
 
 interface ChatContextType {
   currentUser: UserSummary | null;
+  userProfile: UserProfile;
+  userPreferences: UserSettings;
   conversations: ConversationPreview[];
   selectedConversationId: string | null;
   selectedConversation: ConversationPreview | null;
@@ -28,6 +41,7 @@ interface ChatContextType {
   categoryFilter: ConversationCategory;
   sortBy: ConversationSortOption;
   navTab: NavTab;
+  activeSettingsTab: SettingsCategoryTab;
   mobileSidebarOpen: boolean;
   mobileView: "list" | "chat";
   isLoading: boolean;
@@ -39,12 +53,20 @@ interface ChatContextType {
   setCategoryFilter: (category: ConversationCategory) => void;
   setSortBy: (sort: ConversationSortOption) => void;
   setNavTab: (tab: NavTab) => void;
+  setActiveSettingsTab: (tab: SettingsCategoryTab) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileView: (view: "list" | "chat") => void;
   setReplyingToMessage: (msg: Message | null) => void;
   setSearchModalOpen: (open: boolean) => void;
   openSearchModal: (conversationIdScope?: string) => void;
   navigateToSearchResult: (item: SearchResultItem) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserPreferences: (
+    section: keyof UserSettings,
+    updates: Partial<UserSettings[keyof UserSettings]>,
+  ) => void;
+  resetUserProfile: () => void;
+  resetUserPreferences: () => void;
   togglePinConversation: (id: string) => Promise<void>;
   toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
@@ -57,6 +79,8 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
+  const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile);
+  const [userPreferences, setUserPreferences] = useState<UserSettings>(loadUserSettings);
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(null);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -67,6 +91,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [categoryFilter, setCategoryFilter] = useState<ConversationCategory>("all");
   const [sortBy, setSortBy] = useState<ConversationSortOption>("newest");
   const [navTab, setNavTab] = useState<NavTab>("chats");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsCategoryTab>("profile");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +104,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       conversationRepository.getCurrentUser(),
       conversationRepository.getConversations(filter, query, sort),
     ]);
-    setCurrentUser(user);
+    const mergedUser: UserSummary = {
+      ...user,
+      name: userProfile.name,
+      avatarUrl: userProfile.avatarUrl,
+      statusMessage: userProfile.statusMessage,
+      presenceStatus: userProfile.presenceStatus,
+    };
+    setCurrentUser(mergedUser);
     setConversations(list);
     setIsLoading(false);
   };
@@ -91,7 +123,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       conversationRepository.getConversations(categoryFilter, searchQuery, sortBy),
     ]).then(([user, list]) => {
       if (isMounted) {
-        setCurrentUser(user);
+        const mergedUser: UserSummary = {
+          ...user,
+          name: userProfile.name,
+          avatarUrl: userProfile.avatarUrl,
+          statusMessage: userProfile.statusMessage,
+          presenceStatus: userProfile.presenceStatus,
+        };
+        setCurrentUser(mergedUser);
         setConversations(list);
         setIsLoading(false);
       }
@@ -100,7 +139,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryFilter, searchQuery, sortBy]);
+  }, [categoryFilter, searchQuery, sortBy, userProfile]);
 
   useEffect(() => {
     let isMounted = true;
@@ -184,6 +223,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    setUserProfile((prev) => {
+      const updated = { ...prev, ...updates };
+      saveUserProfile(updated);
+      return updated;
+    });
+  };
+
+  const updateUserPreferences = (
+    section: keyof UserSettings,
+    updates: Partial<UserSettings[keyof UserSettings]>,
+  ) => {
+    setUserPreferences((prev) => {
+      const updated: UserSettings = {
+        ...prev,
+        [section]: { ...prev[section], ...updates },
+      };
+      saveUserSettings(updated);
+      return updated;
+    });
+  };
+
+  const resetUserProfile = () => {
+    const defaultProf = resetUserProfileStorage();
+    setUserProfile(defaultProf);
+  };
+
+  const resetUserPreferences = () => {
+    const defaultSettings = resetUserSettingsStorage();
+    setUserPreferences(defaultSettings);
+  };
+
   const handleTogglePin = async (id: string) => {
     await conversationRepository.togglePinConversation(id);
     await fetchLatestData();
@@ -213,7 +284,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       id: `client_msg_${Date.now()}`,
       conversationId: selectedConversationId,
       senderId: currentUser?.id ?? "usr_current",
-      senderName: currentUser?.name ?? "Nguyen Minh",
+      senderName: userProfile.name,
       content: trimmed,
       timestamp: new Date().toISOString(),
       status: "pending",
@@ -268,7 +339,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     const userId = currentUser?.id ?? "usr_current";
-    const userName = currentUser?.name ?? "Nguyen Minh";
+    const userName = userProfile.name;
 
     setMessages((prev) =>
       prev.map((m) => {
@@ -307,6 +378,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     <ChatContext.Provider
       value={{
         currentUser,
+        userProfile,
+        userPreferences,
         conversations,
         selectedConversationId,
         selectedConversation,
@@ -317,6 +390,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         categoryFilter,
         sortBy,
         navTab,
+        activeSettingsTab,
         mobileSidebarOpen,
         mobileView,
         isLoading,
@@ -328,12 +402,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setCategoryFilter,
         setSortBy,
         setNavTab: handleSetNavTab,
+        setActiveSettingsTab,
         setMobileSidebarOpen,
         setMobileView,
         setReplyingToMessage,
         setSearchModalOpen,
         openSearchModal,
         navigateToSearchResult,
+        updateUserProfile,
+        updateUserPreferences,
+        resetUserProfile,
+        resetUserPreferences,
         togglePinConversation: handleTogglePin,
         toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,

@@ -2,14 +2,14 @@
 
 import { Archive, MessageSquare, MessagesSquare, Settings, Star } from "lucide-react";
 
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useChat, type NavTab } from "@/context/chat-context";
 
 export function NavRail() {
-  const { currentUser, navTab, setNavTab } = useChat();
+  const { userProfile, navTab, setNavTab, setActiveSettingsTab } = useChat();
 
   const navItems: { id: NavTab; label: string; icon: typeof MessagesSquare }[] = [
     { id: "chats", label: "Chats", icon: MessagesSquare },
@@ -17,6 +17,20 @@ export function NavRail() {
     { id: "archived", label: "Archived", icon: Archive },
     { id: "settings", label: "Settings", icon: Settings },
   ];
+
+  const handleAvatarClick = () => {
+    setNavTab("settings");
+    setActiveSettingsTab("profile");
+  };
+
+  const presenceColor =
+    userProfile.presenceStatus === "online"
+      ? "bg-emerald-500"
+      : userProfile.presenceStatus === "away"
+        ? "bg-amber-500"
+        : userProfile.presenceStatus === "busy"
+          ? "bg-rose-500"
+          : "bg-slate-400";
 
   return (
     <aside
@@ -65,25 +79,30 @@ export function NavRail() {
       {/* Footer Controls: Theme Toggle & User Avatar */}
       <div className="flex flex-col items-center gap-3">
         <ThemeToggle />
-        {currentUser && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="relative">
-                <Avatar className="h-9 w-9 border border-border">
-                  {currentUser.avatarUrl && (
-                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                  )}
-                  <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-background" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p className="font-semibold">{currentUser.name}</p>
-              <p className="text-xs text-muted-foreground">{currentUser.statusMessage}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleAvatarClick}
+              className="relative cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Open user profile settings"
+            >
+              <Avatar className="h-9 w-9 border border-border">
+                {userProfile.avatarUrl && (
+                  <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} />
+                )}
+                <AvatarFallback>{userProfile.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <span
+                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ${presenceColor} ring-2 ring-background`}
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="font-semibold">{userProfile.name}</p>
+            <p className="text-xs text-muted-foreground">{userProfile.statusMessage}</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </aside>
   );

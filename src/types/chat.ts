@@ -1,4 +1,4 @@
-export type UserPresenceStatus = "online" | "offline" | "away";
+export type UserPresenceStatus = "online" | "offline" | "away" | "busy";
 
 export interface UserSummary {
   id: string;
@@ -7,6 +7,7 @@ export interface UserSummary {
   avatarUrl?: string;
   status: UserPresenceStatus;
   statusMessage?: string;
+  presenceStatus?: UserPresenceStatus;
 }
 
 export type ConversationType = "direct" | "group";
