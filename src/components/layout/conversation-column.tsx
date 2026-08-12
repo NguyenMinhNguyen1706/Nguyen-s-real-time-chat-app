@@ -44,6 +44,7 @@ export function ConversationColumn() {
     isLoading,
     togglePinConversation,
     toggleMuteConversation,
+    openSearchModal,
   } = useChat();
 
   const pinnedConversations = conversations.filter((c) => c.isPinned);
@@ -86,6 +87,22 @@ export function ConversationColumn() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Global Search Shortcut Trigger */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openSearchModal()}
+                className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                aria-label="Global search modal"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Search messages & contacts (/)</TooltipContent>
+          </Tooltip>
+
           {/* New Conversation Action */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -103,10 +120,17 @@ export function ConversationColumn() {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Interactive Search Bar */}
       <div className="px-4 py-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <button
+            type="button"
+            onClick={() => openSearchModal()}
+            aria-label="Open search modal"
+            className="absolute left-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+          </button>
           <Input
             type="search"
             placeholder="Search messages & contacts..."

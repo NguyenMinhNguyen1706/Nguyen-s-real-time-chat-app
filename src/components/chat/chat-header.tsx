@@ -13,7 +13,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ conversation }: ChatHeaderProps) {
-  const { clearSelectedConversation } = useChat();
+  const { clearSelectedConversation, openSearchModal } = useChat();
 
   const getStatusText = () => {
     if (conversation.type === "group") {
@@ -99,6 +99,7 @@ export function ChatHeader({ conversation }: ChatHeaderProps) {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => openSearchModal(conversation.id)}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               aria-label="Search in conversation"
             >

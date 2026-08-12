@@ -12,6 +12,7 @@ import type {
   Message,
   UserSummary,
 } from "@/types/chat";
+import type { SearchResultItem } from "@/types/search";
 
 export type NavTab = "chats" | "favorites" | "archived" | "settings";
 
@@ -31,6 +32,8 @@ interface ChatContextType {
   mobileView: "list" | "chat";
   isLoading: boolean;
   isMessagesLoading: boolean;
+  searchModalOpen: boolean;
+  searchScopeConversationId: string | null;
   setSelectedConversationId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setCategoryFilter: (category: ConversationCategory) => void;
@@ -39,6 +42,9 @@ interface ChatContextType {
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileView: (view: "list" | "chat") => void;
   setReplyingToMessage: (msg: Message | null) => void;
+  setSearchModalOpen: (open: boolean) => void;
+  openSearchModal: (conversationIdScope?: string) => void;
+  navigateToSearchResult: (item: SearchResultItem) => void;
   togglePinConversation: (id: string) => Promise<void>;
   toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
@@ -65,6 +71,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isLoading, setIsLoading] = useState(true);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [searchScopeConversationId, setSearchScopeConversationId] = useState<string | null>(null);
 
   const fetchLatestData = async (filter = categoryFilter, query = searchQuery, sort = sortBy) => {
     const [user, list] = await Promise.all([
@@ -150,6 +158,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setCategoryFilter("archived");
     } else if (tab === "chats") {
       setCategoryFilter("all");
+    }
+  };
+
+  const openSearchModal = (conversationIdScope?: string) => {
+    setSearchScopeConversationId(conversationIdScope ?? null);
+    setSearchModalOpen(true);
+  };
+
+  const navigateToSearchResult = (item: SearchResultItem) => {
+    setSelectedConversationId(item.conversationId);
+    setMobileView("chat");
+
+    if (item.messageId) {
+      setTimeout(() => {
+        const targetEl = document.getElementById(`message-${item.messageId}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          targetEl.classList.add("ring-2", "ring-primary", "transition-all", "duration-500");
+          setTimeout(() => {
+            targetEl.classList.remove("ring-2", "ring-primary");
+          }, 2000);
+        }
+      }, 100);
     }
   };
 
@@ -290,6 +321,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         mobileView,
         isLoading,
         isMessagesLoading,
+        searchModalOpen,
+        searchScopeConversationId,
         setSelectedConversationId: handleSelectConversation,
         setSearchQuery,
         setCategoryFilter,
@@ -298,6 +331,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setMobileSidebarOpen,
         setMobileView,
         setReplyingToMessage,
+        setSearchModalOpen,
+        openSearchModal,
+        navigateToSearchResult,
         togglePinConversation: handleTogglePin,
         toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,

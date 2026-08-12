@@ -13,12 +13,13 @@ test.describe("Message Interactions (Reactions, Reply, Edit, Delete)", () => {
     const timelineLog = desktopContainer.getByRole("log", { name: "Message timeline" });
 
     // Hover over Sarah's message in timeline log
-    const msg = timelineLog
+    const msgText = timelineLog
       .getByText("Hi Nguyen! How is the real-time chat architecture coming along?")
       .first();
-    await msg.hover();
+    const msgContainer = msgText.locator("xpath=./ancestor::div[starts-with(@id, 'message-')]");
+    await msgContainer.hover();
 
-    const hoverToolbar = desktopContainer.getByRole("region", { name: "Message action toolbar" });
+    const hoverToolbar = msgContainer.getByRole("region", { name: "Message action toolbar" });
     await expect(hoverToolbar).toBeVisible();
 
     // Add reaction
@@ -51,12 +52,13 @@ test.describe("Message Interactions (Reactions, Reply, Edit, Delete)", () => {
     const timelineLog = desktopContainer.getByRole("log", { name: "Message timeline" });
 
     // Hover and click reply on Sarah's message in timeline log
-    const msg = timelineLog
+    const msgText = timelineLog
       .getByText("Hi Nguyen! How is the real-time chat architecture coming along?")
       .first();
-    await msg.hover();
+    const msgContainer = msgText.locator("xpath=./ancestor::div[starts-with(@id, 'message-')]");
+    await msgContainer.hover();
 
-    const hoverToolbar = desktopContainer.getByRole("region", { name: "Message action toolbar" });
+    const hoverToolbar = msgContainer.getByRole("region", { name: "Message action toolbar" });
     const replyBtn = hoverToolbar.getByRole("button", { name: "Reply to message" });
     await replyBtn.click();
 
@@ -96,12 +98,17 @@ test.describe("Message Interactions (Reactions, Reply, Edit, Delete)", () => {
     const timelineLog = desktopContainer.getByRole("log", { name: "Message timeline" });
 
     // Hover over outgoing message in timeline log
-    const outgoingMsg = timelineLog
+    const outgoingMsgText = timelineLog
       .getByText("I am reviewing it right now. Everything looks solid!")
       .first();
-    await outgoingMsg.hover();
+    const outgoingMsgContainer = outgoingMsgText.locator(
+      "xpath=./ancestor::div[starts-with(@id, 'message-')]",
+    );
+    await outgoingMsgContainer.hover();
 
-    const hoverToolbar = desktopContainer.getByRole("region", { name: "Message action toolbar" });
+    const hoverToolbar = outgoingMsgContainer.getByRole("region", {
+      name: "Message action toolbar",
+    });
     const moreBtn = hoverToolbar.getByRole("button", { name: "More message options" });
     await moreBtn.click();
 
@@ -140,10 +147,18 @@ test.describe("Message Interactions (Reactions, Reply, Edit, Delete)", () => {
     const sendButton = desktopContainer.getByRole("button", { name: "Send message" });
     await sendButton.click();
 
-    const tempMsg = timelineLog.getByText("Temporary message to delete").first();
-    await tempMsg.hover();
+    // Wait for message creation lifecycle to resolve completely
+    await page.waitForTimeout(700);
 
-    const hoverToolbar = desktopContainer.getByRole("region", { name: "Message action toolbar" });
+    const tempMsgText = timelineLog.getByText("Temporary message to delete").first();
+    const tempMsgContainer = tempMsgText.locator(
+      "xpath=./ancestor::div[starts-with(@id, 'message-')]",
+    );
+    await tempMsgContainer.hover();
+
+    const hoverToolbar = tempMsgContainer.getByRole("region", {
+      name: "Message action toolbar",
+    });
     const moreBtn = hoverToolbar.getByRole("button", { name: "More message options" });
     await moreBtn.click();
 
