@@ -3,7 +3,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { conversationRepository } from "@/repositories/conversation-repository";
-import type { ConversationCategory, ConversationPreview, UserSummary } from "@/types/chat";
+import type {
+  ConversationCategory,
+  ConversationPreview,
+  ConversationSortOption,
+  UserSummary,
+} from "@/types/chat";
 
 export type NavTab = "chats" | "favorites" | "archived" | "settings";
 
@@ -14,15 +19,20 @@ interface ChatContextType {
   selectedConversation: ConversationPreview | null;
   searchQuery: string;
   categoryFilter: ConversationCategory;
+  sortBy: ConversationSortOption;
   navTab: NavTab;
   mobileSidebarOpen: boolean;
   mobileView: "list" | "chat";
+  isLoading: boolean;
   setSelectedConversationId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setCategoryFilter: (category: ConversationCategory) => void;
+  setSortBy: (sort: ConversationSortOption) => void;
   setNavTab: (tab: NavTab) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileView: (view: "list" | "chat") => void;
+  togglePinConversation: (id: string) => Promise<void>;
+  toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
 }
 
@@ -34,19 +44,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ConversationCategory>("all");
+  const [sortBy, setSortBy] = useState<ConversationSortOption>("newest");
   const [navTab, setNavTab] = useState<NavTab>("chats");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchLatestData = async (filter = categoryFilter, query = searchQuery, sort = sortBy) => {
+    const [user, list] = await Promise.all([
+      conversationRepository.getCurrentUser(),
+      conversationRepository.getConversations(filter, query, sort),
+    ]);
+    setCurrentUser(user);
+    setConversations(list);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    async function loadData() {
-      const user = await conversationRepository.getCurrentUser();
-      const list = await conversationRepository.getConversations(categoryFilter, searchQuery);
-      setCurrentUser(user);
-      setConversations(list);
-    }
-    loadData();
-  }, [categoryFilter, searchQuery]);
+    let isMounted = true;
+    Promise.all([
+      conversationRepository.getCurrentUser(),
+      conversationRepository.getConversations(categoryFilter, searchQuery, sortBy),
+    ]).then(([user, list]) => {
+      if (isMounted) {
+        setCurrentUser(user);
+        setConversations(list);
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [categoryFilter, searchQuery, sortBy]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) ?? null;
 
@@ -73,6 +103,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleTogglePin = async (id: string) => {
+    await conversationRepository.togglePinConversation(id);
+    await fetchLatestData();
+  };
+
+  const handleToggleMute = async (id: string) => {
+    await conversationRepository.toggleMuteConversation(id);
+    await fetchLatestData();
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -82,15 +122,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         selectedConversation,
         searchQuery,
         categoryFilter,
+        sortBy,
         navTab,
         mobileSidebarOpen,
         mobileView,
+        isLoading,
         setSelectedConversationId: handleSelectConversation,
         setSearchQuery,
         setCategoryFilter,
+        setSortBy,
         setNavTab: handleSetNavTab,
         setMobileSidebarOpen,
         setMobileView,
+        togglePinConversation: handleTogglePin,
+        toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,
       }}
     >

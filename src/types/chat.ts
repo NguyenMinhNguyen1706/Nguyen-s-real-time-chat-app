@@ -13,6 +13,8 @@ export type ConversationType = "direct" | "group";
 
 export type ConversationCategory = "all" | "unread" | "favorites" | "archived";
 
+export type ConversationSortOption = "newest" | "unread" | "name";
+
 export interface MessagePreview {
   id: string;
   senderId: string;
@@ -31,7 +33,10 @@ export interface ConversationPreview {
   lastMessage?: MessagePreview;
   unreadCount: number;
   isFavorite: boolean;
+  isPinned: boolean;
+  isMuted: boolean;
   isArchived: boolean;
   isOnline?: boolean;
+  presenceStatus?: UserPresenceStatus;
   updatedAt: string; // ISO string
 }

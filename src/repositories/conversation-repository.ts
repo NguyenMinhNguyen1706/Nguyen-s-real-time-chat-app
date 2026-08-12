@@ -1,16 +1,26 @@
 import { MOCK_CONVERSATIONS, MOCK_CURRENT_USER } from "@/repositories/mock/mock-data";
-import type { ConversationCategory, ConversationPreview, UserSummary } from "@/types/chat";
+import type {
+  ConversationCategory,
+  ConversationPreview,
+  ConversationSortOption,
+  UserSummary,
+} from "@/types/chat";
 
 export interface IConversationRepository {
   getCurrentUser(): Promise<UserSummary>;
   getConversations(
     category?: ConversationCategory,
     searchQuery?: string,
+    sortBy?: ConversationSortOption,
   ): Promise<ConversationPreview[]>;
   getConversationById(id: string): Promise<ConversationPreview | null>;
+  togglePinConversation(id: string): Promise<ConversationPreview | null>;
+  toggleMuteConversation(id: string): Promise<ConversationPreview | null>;
 }
 
 export class MockConversationRepository implements IConversationRepository {
+  private data: ConversationPreview[] = [...MOCK_CONVERSATIONS];
+
   async getCurrentUser(): Promise<UserSummary> {
     return MOCK_CURRENT_USER;
   }
@@ -18,13 +28,14 @@ export class MockConversationRepository implements IConversationRepository {
   async getConversations(
     category: ConversationCategory = "all",
     searchQuery: string = "",
+    sortBy: ConversationSortOption = "newest",
   ): Promise<ConversationPreview[]> {
-    let result = [...MOCK_CONVERSATIONS];
+    let result = [...this.data];
 
     if (category === "unread") {
       result = result.filter((c) => !c.isArchived && c.unreadCount > 0);
     } else if (category === "favorites") {
-      result = result.filter((c) => !c.isArchived && c.isFavorite);
+      result = result.filter((c) => !c.isArchived && (c.isFavorite || c.isPinned));
     } else if (category === "archived") {
       result = result.filter((c) => c.isArchived);
     } else {
@@ -39,12 +50,43 @@ export class MockConversationRepository implements IConversationRepository {
       );
     }
 
+    // Sort logic
+    result.sort((a, b) => {
+      // Pinned items stay at top unless sorting by name
+      if (a.isPinned !== b.isPinned && sortBy !== "name") {
+        return a.isPinned ? -1 : 1;
+      }
+      if (sortBy === "unread") {
+        return b.unreadCount - a.unreadCount;
+      }
+      if (sortBy === "name") {
+        return a.title.localeCompare(b.title);
+      }
+      // default: newest
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
     return result;
   }
 
   async getConversationById(id: string): Promise<ConversationPreview | null> {
-    const found = MOCK_CONVERSATIONS.find((c) => c.id === id);
+    const found = this.data.find((c) => c.id === id);
     return found ?? null;
+  }
+
+  async togglePinConversation(id: string): Promise<ConversationPreview | null> {
+    const target = this.data.find((c) => c.id === id);
+    if (!target) return null;
+    target.isPinned = !target.isPinned;
+    target.isFavorite = target.isPinned;
+    return { ...target };
+  }
+
+  async toggleMuteConversation(id: string): Promise<ConversationPreview | null> {
+    const target = this.data.find((c) => c.id === id);
+    if (!target) return null;
+    target.isMuted = !target.isMuted;
+    return { ...target };
   }
 }
 
