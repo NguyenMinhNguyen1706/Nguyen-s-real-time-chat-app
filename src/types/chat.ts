@@ -25,10 +25,23 @@ export interface AttachmentPreview {
   url?: string;
 }
 
+export interface MessageReaction {
+  id: string;
+  messageId: string;
+  emoji: string;
+  userId: string;
+  userName: string;
+}
+
 export interface CreateMessageInput {
   conversationId: string;
   content: string;
   attachment?: AttachmentPreview;
+  replyToMessageId?: string;
+  replyToMessagePreview?: {
+    senderName: string;
+    content: string;
+  };
 }
 
 export interface Message {
@@ -43,6 +56,12 @@ export interface Message {
   isUnread?: boolean;
   isEdited?: boolean;
   attachment?: AttachmentPreview;
+  replyToMessageId?: string;
+  replyToMessagePreview?: {
+    senderName: string;
+    content: string;
+  };
+  reactions?: MessageReaction[];
 }
 
 export interface MessageGroup {

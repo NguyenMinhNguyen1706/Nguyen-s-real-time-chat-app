@@ -22,6 +22,7 @@ interface ChatContextType {
   selectedConversation: ConversationPreview | null;
   messages: Message[];
   typingUsers: string[];
+  replyingToMessage: Message | null;
   searchQuery: string;
   categoryFilter: ConversationCategory;
   sortBy: ConversationSortOption;
@@ -37,10 +38,14 @@ interface ChatContextType {
   setNavTab: (tab: NavTab) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setMobileView: (view: "list" | "chat") => void;
+  setReplyingToMessage: (msg: Message | null) => void;
   togglePinConversation: (id: string) => Promise<void>;
   toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
   sendMessage: (content: string, attachment?: AttachmentPreview) => Promise<void>;
+  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
+  editMessage: (messageId: string, newContent: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -51,6 +56,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ConversationCategory>("all");
   const [sortBy, setSortBy] = useState<ConversationSortOption>("newest");
@@ -96,6 +102,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (isMounted) {
           setMessages([]);
           setTypingUsers([]);
+          setReplyingToMessage(null);
           setIsMessagesLoading(false);
         }
       });
@@ -111,6 +118,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (isMounted) {
         setMessages(msgs);
         setTypingUsers(typers);
+        setReplyingToMessage(null);
         setIsMessagesLoading(false);
       }
     });
@@ -160,6 +168,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const trimmed = content.trim();
     if (!trimmed && !attachment) return;
 
+    const replyMetadata = replyingToMessage
+      ? {
+          replyToMessageId: replyingToMessage.id,
+          replyToMessagePreview: {
+            senderName: replyingToMessage.senderName,
+            content: replyingToMessage.content,
+          },
+        }
+      : {};
+
     const optimisticMsg: Message = {
       id: `client_msg_${Date.now()}`,
       conversationId: selectedConversationId,
@@ -169,9 +187,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       timestamp: new Date().toISOString(),
       status: "pending",
       attachment,
+      ...replyMetadata,
+      reactions: [],
     };
 
     setMessages((prev) => [...prev, optimisticMsg]);
+    setReplyingToMessage(null);
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -198,6 +219,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       conversationId: selectedConversationId,
       content: trimmed,
       attachment,
+      ...replyMetadata,
     });
 
     setTimeout(() => {
@@ -213,6 +235,43 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }, 600);
   };
 
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    const userId = currentUser?.id ?? "usr_current";
+    const userName = currentUser?.name ?? "Nguyen Minh";
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const reactions = m.reactions ?? [];
+        const existingIdx = reactions.findIndex((r) => r.emoji === emoji && r.userId === userId);
+        let updatedReactions;
+        if (existingIdx !== -1) {
+          updatedReactions = reactions.filter((_, i) => i !== existingIdx);
+        } else {
+          updatedReactions = [
+            ...reactions,
+            { id: `react_${Date.now()}`, messageId, emoji, userId, userName },
+          ];
+        }
+        return { ...m, reactions: updatedReactions };
+      }),
+    );
+
+    await messageRepository.toggleReaction(messageId, emoji, userId, userName);
+  };
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, content: newContent, isEdited: true } : m)),
+    );
+    await messageRepository.editMessage(messageId, newContent);
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    await messageRepository.deleteMessage(messageId);
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -222,6 +281,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         selectedConversation,
         messages,
         typingUsers,
+        replyingToMessage,
         searchQuery,
         categoryFilter,
         sortBy,
@@ -237,10 +297,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setNavTab: handleSetNavTab,
         setMobileSidebarOpen,
         setMobileView,
+        setReplyingToMessage,
         togglePinConversation: handleTogglePin,
         toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,
         sendMessage: handleSendMessage,
+        toggleReaction: handleToggleReaction,
+        editMessage: handleEditMessage,
+        deleteMessage: handleDeleteMessage,
       }}
     >
       {children}
