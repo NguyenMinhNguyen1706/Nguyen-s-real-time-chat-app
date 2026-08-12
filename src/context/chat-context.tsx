@@ -3,10 +3,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { conversationRepository } from "@/repositories/conversation-repository";
+import { messageRepository } from "@/repositories/message-repository";
 import type {
   ConversationCategory,
   ConversationPreview,
   ConversationSortOption,
+  Message,
   UserSummary,
 } from "@/types/chat";
 
@@ -17,6 +19,8 @@ interface ChatContextType {
   conversations: ConversationPreview[];
   selectedConversationId: string | null;
   selectedConversation: ConversationPreview | null;
+  messages: Message[];
+  typingUsers: string[];
   searchQuery: string;
   categoryFilter: ConversationCategory;
   sortBy: ConversationSortOption;
@@ -24,6 +28,7 @@ interface ChatContextType {
   mobileSidebarOpen: boolean;
   mobileView: "list" | "chat";
   isLoading: boolean;
+  isMessagesLoading: boolean;
   setSelectedConversationId: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setCategoryFilter: (category: ConversationCategory) => void;
@@ -42,6 +47,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(null);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ConversationCategory>("all");
   const [sortBy, setSortBy] = useState<ConversationSortOption>("newest");
@@ -49,6 +56,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [isLoading, setIsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
 
   const fetchLatestData = async (filter = categoryFilter, query = searchQuery, sort = sortBy) => {
     const [user, list] = await Promise.all([
@@ -77,6 +85,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, [categoryFilter, searchQuery, sortBy]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!selectedConversationId) {
+      Promise.resolve().then(() => {
+        if (isMounted) {
+          setMessages([]);
+          setTypingUsers([]);
+          setIsMessagesLoading(false);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    Promise.all([
+      messageRepository.getMessagesByConversationId(selectedConversationId),
+      messageRepository.getTypingUsers(selectedConversationId),
+    ]).then(([msgs, typers]) => {
+      if (isMounted) {
+        setMessages(msgs);
+        setTypingUsers(typers);
+        setIsMessagesLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedConversationId]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) ?? null;
 
@@ -120,6 +160,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         conversations,
         selectedConversationId,
         selectedConversation,
+        messages,
+        typingUsers,
         searchQuery,
         categoryFilter,
         sortBy,
@@ -127,6 +169,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         mobileSidebarOpen,
         mobileView,
         isLoading,
+        isMessagesLoading,
         setSelectedConversationId: handleSelectConversation,
         setSearchQuery,
         setCategoryFilter,

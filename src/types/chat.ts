@@ -15,6 +15,30 @@ export type ConversationCategory = "all" | "unread" | "favorites" | "archived";
 
 export type ConversationSortOption = "newest" | "unread" | "name";
 
+export type MessageStatus = "sent" | "delivered" | "read";
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatarUrl?: string;
+  content: string;
+  timestamp: string; // ISO string
+  status: MessageStatus;
+  isUnread?: boolean;
+  isEdited?: boolean;
+}
+
+export interface MessageGroup {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatarUrl?: string;
+  isOutgoing: boolean;
+  messages: Message[];
+}
+
 export interface MessagePreview {
   id: string;
   senderId: string;
