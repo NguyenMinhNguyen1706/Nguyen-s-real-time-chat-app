@@ -1,6 +1,15 @@
 "use client";
 
-import { AlertTriangle, Bell, MessageSquare, Palette, Shield, User, UserCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bell,
+  MessageSquare,
+  Palette,
+  Shield,
+  User,
+  UserCheck,
+} from "lucide-react";
 
 import { AccountSection } from "@/components/settings/account-section";
 import { AppearanceSection } from "@/components/settings/appearance-section";
@@ -9,11 +18,12 @@ import { DangerZoneSection } from "@/components/settings/danger-zone-section";
 import { NotificationSection } from "@/components/settings/notification-section";
 import { PrivacySection } from "@/components/settings/privacy-section";
 import { ProfileSection } from "@/components/settings/profile-section";
+import { Button } from "@/components/ui/button";
 
 import { useChat, type SettingsCategoryTab } from "@/context/chat-context";
 
 export function SettingsLayout() {
-  const { activeSettingsTab, setActiveSettingsTab } = useChat();
+  const { activeSettingsTab, setActiveSettingsTab, setNavTab, setMobileView } = useChat();
 
   const categories: {
     id: SettingsCategoryTab;
@@ -65,6 +75,11 @@ export function SettingsLayout() {
     },
   ];
 
+  const handleMobileBack = () => {
+    setNavTab("chats");
+    setMobileView("list");
+  };
+
   const renderActiveSection = () => {
     switch (activeSettingsTab) {
       case "profile":
@@ -95,9 +110,20 @@ export function SettingsLayout() {
         aria-label="Settings categories"
         className="w-full md:w-64 shrink-0 border-b md:border-b-0 md:border-r bg-muted/20 p-4 space-y-1 overflow-y-auto"
       >
-        <div className="px-2 py-1.5 mb-2">
-          <h2 className="text-base font-bold tracking-tight text-foreground">Settings</h2>
-          <p className="text-xs text-muted-foreground">Manage your profile and preferences</p>
+        <div className="flex items-center gap-2 px-2 py-1.5 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleMobileBack}
+            className="md:hidden h-8 w-8 text-muted-foreground hover:text-foreground"
+            aria-label="Back to conversations"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-foreground">Settings</h2>
+            <p className="text-xs text-muted-foreground">Manage your profile and preferences</p>
+          </div>
         </div>
 
         {/* Mobile Dropdown Category Selector */}
@@ -148,7 +174,7 @@ export function SettingsLayout() {
       {/* Main Settings Content Area */}
       <main
         aria-label="Settings category content"
-        className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8"
+        className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-safe"
       >
         <div className="mx-auto max-w-2xl space-y-6">
           {/* Active Category Header */}

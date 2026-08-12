@@ -10,10 +10,17 @@ import { Button } from "@/components/ui/button";
 import { ChatProvider, useChat } from "@/context/chat-context";
 
 function AppShellContent() {
-  const { mobileView, mobileSidebarOpen, setMobileSidebarOpen } = useChat();
+  const { userPreferences, mobileView, mobileSidebarOpen, setMobileSidebarOpen } = useChat();
+
+  const isReducedMotion = userPreferences.appearance.reducedMotion;
+  const isCompact = userPreferences.appearance.density === "compact";
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background">
+    <div
+      className={`flex h-dvh w-full overflow-hidden bg-background ${
+        isReducedMotion ? "reduced-motion" : ""
+      } ${isCompact ? "density-compact" : ""}`}
+    >
       {/* Search Modal Overlay */}
       <SearchModal />
 
@@ -28,7 +35,7 @@ function AppShellContent() {
       <div className="flex md:hidden h-full w-full flex-col overflow-hidden">
         {mobileView === "list" ? (
           <div className="flex h-full w-full flex-col overflow-hidden">
-            <header className="flex h-12 shrink-0 items-center border-b px-3 bg-background">
+            <header className="flex h-12 shrink-0 items-center border-b px-3 bg-background pt-safe">
               <Button
                 variant="ghost"
                 size="icon"
