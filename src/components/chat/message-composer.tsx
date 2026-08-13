@@ -13,13 +13,22 @@ import { useChat } from "@/context/chat-context";
 import type { AttachmentPreview } from "@/types/chat";
 
 export function MessageComposer() {
-  const { sendMessage, selectedConversation, replyingToMessage, setReplyingToMessage } = useChat();
+  const { sendMessage, sendTypingSignal, selectedConversation, replyingToMessage, setReplyingToMessage } = useChat();
   const [content, setContent] = useState("");
   const [attachment, setAttachment] = useState<AttachmentPreview | undefined>(undefined);
   const [isSending, setIsSending] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleContentChange = (val: string) => {
+    setContent(val);
+    if (val.trim().length > 0) {
+      sendTypingSignal(true);
+    } else {
+      sendTypingSignal(false);
+    }
+  };
 
   const canSend = (content.trim().length > 0 || attachment !== undefined) && !isSending;
 
@@ -127,7 +136,7 @@ export function MessageComposer() {
           <ComposerTextarea
             ref={textareaRef}
             value={content}
-            onChange={setContent}
+            onChange={handleContentChange}
             onSend={handleSend}
             placeholder={`Write a message to ${selectedConversation.title}...`}
             disabled={isSending}

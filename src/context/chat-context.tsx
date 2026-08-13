@@ -13,6 +13,9 @@ import {
 } from "@/lib/settings-storage";
 import { conversationRepository } from "@/repositories/conversation-repository";
 import { messageRepository } from "@/repositories/message-repository";
+import { messageRealtimeService } from "@/services/message-realtime-service";
+import { presenceService } from "@/services/presence-service";
+import { typingService } from "@/services/typing-service";
 import type {
   AttachmentPreview,
   ConversationCategory,
@@ -26,7 +29,13 @@ import type { UserProfile, UserSettings } from "@/types/settings";
 
 export type NavTab = "chats" | "favorites" | "archived" | "settings";
 export type SettingsCategoryTab =
-  "profile" | "appearance" | "notifications" | "privacy" | "chat" | "account" | "danger";
+  | "profile"
+  | "appearance"
+  | "notifications"
+  | "privacy"
+  | "chat"
+  | "account"
+  | "danger";
 
 interface ChatContextType {
   currentUser: UserSummary | null;
@@ -72,6 +81,7 @@ interface ChatContextType {
   toggleMuteConversation: (id: string) => Promise<void>;
   clearSelectedConversation: () => void;
   sendMessage: (content: string, attachment?: AttachmentPreview) => Promise<void>;
+  sendTypingSignal: (isTyping: boolean) => void;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   editMessage: (messageId: string, newContent: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
@@ -157,6 +167,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, [categoryFilter, searchQuery, sortBy, userProfile, authProfile]);
 
+  // Realtime Presence Tracking
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const unsubscribeTracking = presenceService.trackPresence(
+      currentUser.id,
+      currentUser.name,
+      currentUser.presenceStatus || "online",
+    );
+
+    const unsubscribeChanges = presenceService.subscribePresenceChanges((onlineMap) => {
+      setConversations((prev) =>
+        prev.map((c) => {
+          const hasOnlineParticipant = c.participants.some(
+            (p) => p.id !== currentUser.id && onlineMap.has(p.id),
+          );
+          return {
+            ...c,
+            isOnline: hasOnlineParticipant,
+            presenceStatus: hasOnlineParticipant ? "online" : c.presenceStatus,
+          };
+        }),
+      );
+    });
+
+    return () => {
+      unsubscribeTracking();
+      unsubscribeChanges();
+    };
+  }, [currentUser]);
+
+  // Realtime Messages & Typing Subscriptions
   useEffect(() => {
     let isMounted = true;
 
@@ -186,10 +228,79 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Realtime message events subscription
+    const unsubMessageRealtime = messageRealtimeService.subscribeToConversation(
+      selectedConversationId,
+      {
+        onInsert: (incomingMsg) => {
+          setMessages((prev) => {
+            const existingIdx = prev.findIndex(
+              (m) =>
+                m.id === incomingMsg.id ||
+                (m.status === "pending" &&
+                  m.senderId === incomingMsg.senderId &&
+                  m.content === incomingMsg.content),
+            );
+
+            if (existingIdx !== -1) {
+              const updated = [...prev];
+              updated[existingIdx] = {
+                ...incomingMsg,
+                status: "sent",
+              };
+              return updated;
+            }
+            return [...prev, incomingMsg];
+          });
+
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === selectedConversationId
+                ? {
+                    ...c,
+                    lastMessage: {
+                      id: incomingMsg.id,
+                      senderId: incomingMsg.senderId,
+                      senderName: incomingMsg.senderName,
+                      content: incomingMsg.content,
+                      timestamp: incomingMsg.timestamp,
+                      isUnread: incomingMsg.senderId !== currentUser?.id,
+                    },
+                    updatedAt: incomingMsg.timestamp,
+                  }
+                : c,
+            ),
+          );
+        },
+        onUpdate: (updatedMsg) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m)),
+          );
+        },
+        onDelete: (deletedMsgId) => {
+          setMessages((prev) => prev.filter((m) => m.id !== deletedMsgId));
+        },
+      },
+    );
+
+    // Realtime typing signals subscription
+    const currentId = currentUser?.id || "usr_current";
+    const unsubTyping = typingService.subscribeTyping(
+      selectedConversationId,
+      currentId,
+      (typers) => {
+        if (isMounted) {
+          setTypingUsers(typers);
+        }
+      },
+    );
+
     return () => {
       isMounted = false;
+      unsubMessageRealtime();
+      unsubTyping();
     };
-  }, [selectedConversationId]);
+  }, [selectedConversationId, currentUser]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) ?? null;
 
@@ -281,10 +392,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     await fetchLatestData();
   };
 
+  const sendTypingSignal = (isTyping: boolean) => {
+    if (!selectedConversationId || !currentUser) return;
+    typingService.sendTypingSignal(
+      selectedConversationId,
+      currentUser.id,
+      userProfile.name,
+      isTyping,
+    );
+  };
+
   const handleSendMessage = async (content: string, attachment?: AttachmentPreview) => {
     if (!selectedConversationId) return;
     const trimmed = content.trim();
     if (!trimmed && !attachment) return;
+
+    if (currentUser) {
+      typingService.stopTypingImmediately(selectedConversationId, currentUser.id, userProfile.name);
+    }
 
     const replyMetadata = replyingToMessage
       ? {
@@ -433,6 +558,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         toggleMuteConversation: handleToggleMute,
         clearSelectedConversation: handleClearSelectedConversation,
         sendMessage: handleSendMessage,
+        sendTypingSignal,
         toggleReaction: handleToggleReaction,
         editMessage: handleEditMessage,
         deleteMessage: handleDeleteMessage,
