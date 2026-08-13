@@ -1,4 +1,5 @@
 import { MOCK_CONVERSATIONS, MOCK_CURRENT_USER } from "@/repositories/mock/mock-data";
+import { SupabaseConversationRepository } from "@/repositories/supabase-conversation-repository";
 import type {
   ConversationCategory,
   ConversationPreview,
@@ -52,7 +53,6 @@ export class MockConversationRepository implements IConversationRepository {
 
     // Sort logic
     result.sort((a, b) => {
-      // Pinned items stay at top unless sorting by name
       if (a.isPinned !== b.isPinned && sortBy !== "name") {
         return a.isPinned ? -1 : 1;
       }
@@ -62,7 +62,6 @@ export class MockConversationRepository implements IConversationRepository {
       if (sortBy === "name") {
         return a.title.localeCompare(b.title);
       }
-      // default: newest
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
 
@@ -90,4 +89,8 @@ export class MockConversationRepository implements IConversationRepository {
   }
 }
 
-export const conversationRepository: IConversationRepository = new MockConversationRepository();
+// Export singleton instance: use Supabase repository when NEXT_PUBLIC_SUPABASE_URL is configured, else Mock
+export const conversationRepository: IConversationRepository =
+  process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? new SupabaseConversationRepository()
+    : new MockConversationRepository();

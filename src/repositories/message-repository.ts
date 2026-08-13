@@ -1,4 +1,5 @@
 import { MOCK_MESSAGES_MAP, MOCK_TYPING_USERS } from "@/repositories/mock/mock-messages";
+import { SupabaseMessageRepository } from "@/repositories/supabase-message-repository";
 import type { CreateMessageInput, Message } from "@/types/chat";
 
 export interface IMessageRepository {
@@ -69,10 +70,8 @@ export class MockMessageRepository implements IMessageRepository {
 
         let updatedReactions;
         if (existingIndex !== -1) {
-          // Remove reaction
           updatedReactions = reactions.filter((_, idx) => idx !== existingIndex);
         } else {
-          // Add reaction
           updatedReactions = [
             ...reactions,
             {
@@ -128,4 +127,7 @@ export class MockMessageRepository implements IMessageRepository {
   }
 }
 
-export const messageRepository = new MockMessageRepository();
+// Export singleton instance: use Supabase repository when NEXT_PUBLIC_SUPABASE_URL is configured, else Mock
+export const messageRepository: IMessageRepository = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new SupabaseMessageRepository()
+  : new MockMessageRepository();

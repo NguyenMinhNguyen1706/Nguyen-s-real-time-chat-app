@@ -2,14 +2,14 @@
 
 **Project**: Nguyen's Real-time Chat App  
 **Target Stack**: Supabase Auth + Next.js App Router (`@supabase/ssr`)  
-**Implementation Stage**: TASK 12 Complete  
-**Git Branch**: `agent/task-12-authentication`
+**Implementation Stage**: TASK 12.1 Complete  
+**Git Branch**: `agent/task-12-1-auth-production-verification`
 
 ---
 
 ## 1. Overview & Architecture
 
-Authentication in Nguyen's Real-time Chat App is built around Supabase Authentication and `@supabase/ssr` session management. Client-side state is managed by a dedicated `AuthProvider` (`src/context/auth-context.tsx`), while server-side route protection and cookie synchronization are handled via Next.js App Router Middleware (`src/middleware.ts`).
+Authentication in Nguyen's Real-time Chat App is built around Supabase Authentication and `@supabase/ssr` session management. Client-side state is managed by a dedicated `AuthProvider` (`src/context/auth-context.tsx`), while server-side route protection and cookie synchronization are handled via Next.js App Router Proxy Middleware (`src/proxy.ts`).
 
 ```
 +-------------------------------------------------------------------+
@@ -24,8 +24,8 @@ Authentication in Nguyen's Real-time Chat App is built around Supabase Authentic
                                                        | (HTTP / SSR Cookie)
                                                        v
 +-------------------------------------------------------------------+
-|                        Next.js Middleware                         |
-|   src/middleware.ts (@supabase/ssr createServerClient)            |
+|                        Next.js 16 Proxy                           |
+|   src/proxy.ts (@supabase/ssr createServerClient)                 |
 |   - Synchronizes auth cookies                                     |
 |   - Redirects unauthenticated requests from / to /auth/login       |
 |   - Redirects authenticated requests from /auth/* to /            |
@@ -78,7 +78,7 @@ When a user registers through `/auth/signup`:
 
 ## 4. Route Protection Middleware
 
-Located at `src/middleware.ts`.
+Located at `src/proxy.ts`.
 
 Using `@supabase/ssr` `createServerClient`:
 - **Protected Routes**: `/` (Chat Application), `/settings`
@@ -88,16 +88,27 @@ Using `@supabase/ssr` `createServerClient`:
 
 ---
 
-## 5. Security & Credentials Boundaries
+## 5. Security & Key Modernization
 
+- **`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`**: Recommended modern Supabase frontend key. Supported alongside legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` across `src/lib/supabase/client.ts`, `src/lib/supabase/server.ts`, and `src/proxy.ts`.
 - **`SUPABASE_SERVICE_ROLE_KEY`**: Server-only key used for administrative CLI/migrations. **NEVER** imported or referenced in client-side bundles.
-- **`NEXT_PUBLIC_SUPABASE_ANON_KEY`**: Public publishable key safe for browser consumption. Data access is 100% protected by RLS.
 - **Password Security**: Passwords are processed directly by Supabase Auth and never persisted in local storage or raw database fields.
 
 ---
 
-## 6. Testing & Regression Matrix
+## 6. Local & Production Project Discovery
 
-- **Unit Tests**: `tests/unit/lib/auth.test.ts` (Form validation, username rules, error mappings)
-- **E2E Tests**: `tests/e2e/auth.spec.ts` (Sign In / Sign Up render, validation rules, password toggle, page navigation)
-- **Database RLS Security Suite**: `npx supabase test db` (**37 / 37 pgTAP subtests passed**)
+- **Local Discovery**: Local project configuration in `supabase/config.toml` is `Nguyen-s-real-time-chat-app` (ports: API `54321`, DB `54322`, Studio `54323`).
+- **Auth Defaults**: `enable_confirmations = false` (Local dev), `minimum_password_length = 6`, `site_url = "http://127.0.0.1:3000"`.
+- **Production Status**: Production Auth hosted on Vercel requires setting `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in Vercel Environment Variables.
+
+---
+
+## 7. Testing & Regression Matrix
+
+- **ESLint**: PASS (0 errors, 0 warnings)
+- **TypeScript**: PASS (0 errors via `tsc --noEmit`)
+- **Unit Tests**: PASS (68 / 68 Vitest unit tests in `tests/unit/lib/auth.test.ts`)
+- **E2E Tests**: PASS (42 / 42 Playwright tests in `tests/e2e/auth.spec.ts`)
+- **Next.js Production Build**: PASS (static routes `/`, `/auth/login`, `/auth/signup` compiled with `ƒ Proxy`)
+- **Database RLS Security Suite**: 37 / 37 pgTAP assertions verified in TASK 11.3
