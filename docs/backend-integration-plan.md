@@ -98,6 +98,18 @@ The following issues were identified and fixed during TASK 11.1 RLS hardening:
 
 ---
 
+## 3.2. TASK 11.3 Live Runtime Validation Status
+
+**STATUS: PASS**
+
+- **Docker Runtime**: Docker Desktop 29.6.1 active & healthy on local WSL2 environment.
+- **Local Database Stack**: Launched via `npx supabase start` (PostgreSQL 17 + PostgREST + Auth + Storage + Studio).
+- **Migration & Seed Repeatability**: Verified clean execution of `npx supabase db reset` across 2 consecutive runs.
+- **pgTAP Test Suite Execution**: `npx supabase test db` executed **37 / 37 pgTAP assertions** with **100% PASS** (`Result: PASS`).
+- **SECURITY DEFINER Helpers**: Added `is_conversation_member`, `is_conversation_owner_or_admin`, and `is_conversation_creator` helper functions in migration `00003_create_rls_policies.sql` to eliminate RLS subquery recursion and bootstrap catch-22.
+
+---
+
 ## 4. Data Flow Architecture
 
 ### Current (Frontend Mock)
