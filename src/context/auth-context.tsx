@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const supabase = createClient();
 
-  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
+  const fetchProfile = useCallback(async (userId: string): Promise<UserProfile | null> => {
     if (!supabase) return null;
     try {
       const { data, error: fetchErr } = await supabase
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return null;
     }
-  };
+  }, [supabase, user]);
 
   const refreshProfile = async () => {
     if (user) {
@@ -88,9 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     if (!supabase) {
-      setIsLoading(false);
-      setIsInitialized(true);
-      return;
+      Promise.resolve().then(() => {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsInitialized(true);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
     }
 
     // Get initial session
@@ -136,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase, fetchProfile]);
 
   const signInWithPassword = async (data: SignInFormData) => {
     setError(null);

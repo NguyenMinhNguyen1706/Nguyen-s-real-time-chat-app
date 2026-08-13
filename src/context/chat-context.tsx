@@ -103,7 +103,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authProfile) {
-      setUserProfile(authProfile);
+      Promise.resolve().then(() => {
+        setUserProfile(authProfile);
+      });
     }
   }, [authProfile]);
 

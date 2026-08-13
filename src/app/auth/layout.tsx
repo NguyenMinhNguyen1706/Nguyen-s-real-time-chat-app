@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
       {/* Auth Footer */}
       <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border/40">
-        <p>© 2026 Nguyen's Real-time Chat App. All rights reserved.</p>
+        <p>© 2026 Nguyen&apos;s Real-time Chat App. All rights reserved.</p>
       </footer>
     </div>
   );
