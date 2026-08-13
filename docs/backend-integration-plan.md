@@ -90,6 +90,14 @@ The following issues were identified and fixed during TASK 11.1 RLS hardening:
 
 ---
 
+## 3.1. TASK 11.2 Security & Bootstrap Corrections
+
+1. **CRITICAL — Arbitrary Conversation Self-Join**: Restricted `conversation_members` self-insertion (`auth.uid() = user_id`) to only conversations where `conversations.created_by = auth.uid()` AND `role = 'owner'`. Arbitrary self-joining into conversations created by others is strictly DENIED.
+2. **HIGH — Member Role Escalation**: Added anti-role-escalation `WITH CHECK` to `conversation_members` UPDATE policy ensuring a regular member cannot change their `role` column via self-update.
+3. **HIGH — Conversation `created_by` Impersonation**: Verified `conversations` INSERT policy enforces `created_by = auth.uid()`, preventing User A from creating a conversation attributed to User B.
+
+---
+
 ## 4. Data Flow Architecture
 
 ### Current (Frontend Mock)

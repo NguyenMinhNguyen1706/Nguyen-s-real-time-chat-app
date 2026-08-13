@@ -3,7 +3,7 @@
 **Project**: Nguyen's Real-time Chat App  
 **Target Engine**: PostgreSQL (Supabase)  
 **Migration Version**: `00001` through `00004`  
-**RLS Hardened**: TASK 11.1
+**RLS Hardened & Finalized**: TASK 11.2
 
 ---
 
@@ -63,7 +63,7 @@ Stores extended user profile information linked 1:1 with `auth.users.id`.
 | `created_at`      | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`                                           |                              |
 | `updated_at`      | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`, auto-trigger                             |                              |
 
-**Privacy Decision**: All profile columns are considered public to authenticated users. The `profiles` table does NOT contain email or credentials — those live exclusively in `auth.users` (not exposed via Supabase Data API). This supports user discovery and chat header rendering.
+**Privacy Decision**: `display_name`, `username`, `avatar_path`, `bio`, `presence_status`, and `custom_status` are public profile fields accessible to authenticated users for contact discovery and chat headers. Private credentials and email addresses reside exclusively in `auth.users`, which is strictly protected by Supabase Auth and never exposed via the Data API.
 
 ### `public.conversations`
 
@@ -95,215 +95,89 @@ Stores extended user profile information linked 1:1 with `auth.users.id`.
 
 ### `public.messages`
 
-| Column                | Type        | Constraints                                         | Notes                  |
-| --------------------- | ----------- | --------------------------------------------------- | ---------------------- |
-| `id`                  | UUID        | PK, DEFAULT `gen_random_uuid()`                     |                        |
-| `conversation_id`     | UUID        | NOT NULL, FK → `conversations.id` ON DELETE CASCADE |                        |
-| `sender_id`           | UUID        | NOT NULL, FK → `profiles.id` ON DELETE CASCADE      |                        |
-| `content`             | TEXT        | NOT NULL                                            | Plain text only        |
-| `reply_to_message_id` | UUID        | FK → `messages.id` ON DELETE SET NULL               |                        |
-| `status`              | VARCHAR(20) | NOT NULL, DEFAULT `'sent'`                          | See Status Model below |
-| `is_edited`           | BOOLEAN     | NOT NULL, DEFAULT `false`                           |                        |
-| `edited_at`           | TIMESTAMPTZ | Nullable                                            |                        |
-| `deleted_at`          | TIMESTAMPTZ | Nullable                                            | Soft deletion          |
-| `created_at`          | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`                           |                        |
-| `updated_at`          | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`, auto-trigger             |                        |
-
-**Soft Deletion Model**: When a message is soft-deleted, `deleted_at` is set to a timestamp. The message row remains so that `reply_to_message_id` references remain structurally valid. The frontend renders deleted messages as "This message was deleted" placeholders. Hard deletion is available via `DELETE` (sender only) but breaks reply references (SET NULL).
-
-**Message Status Model Decision**: The `status` column persists `sent` as the default database state. Transient states (`pending`, `delivered`) are client-side transport concerns. Read state is derived from `conversation_members.last_read_at` compared to `messages.created_at`. This avoids per-message per-user read tracking overhead.
-
-### `public.message_reactions`
-
-| Column       | Type        | Constraints                                    | Notes |
-| ------------ | ----------- | ---------------------------------------------- | ----- |
-| `id`         | UUID        | PK, DEFAULT `gen_random_uuid()`                |       |
-| `message_id` | UUID        | NOT NULL, FK → `messages.id` ON DELETE CASCADE |       |
-| `user_id`    | UUID        | NOT NULL, FK → `profiles.id` ON DELETE CASCADE |       |
-| `emoji`      | VARCHAR(32) | NOT NULL                                       |       |
-| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`                      |       |
-
-**Constraint**: `UNIQUE(message_id, user_id, emoji)` — one reaction per user per emoji per message.
-
-### `public.message_attachments`
-
-| Column         | Type         | Constraints                                    | Notes                 |
-| -------------- | ------------ | ---------------------------------------------- | --------------------- |
-| `id`           | UUID         | PK, DEFAULT `gen_random_uuid()`                |                       |
-| `message_id`   | UUID         | NOT NULL, FK → `messages.id` ON DELETE CASCADE |                       |
-| `storage_path` | TEXT         | NOT NULL                                       | Supabase Storage path |
-| `file_name`    | TEXT         | NOT NULL                                       |                       |
-| `mime_type`    | VARCHAR(100) | NOT NULL                                       |                       |
-| `file_size`    | BIGINT       | NOT NULL, CHECK `(file_size >= 0)`             |                       |
-| `created_at`   | TIMESTAMPTZ  | NOT NULL, DEFAULT `now()`                      |                       |
-
-### `public.notifications`
-
-| Column            | Type        | Constraints                                    | Notes |
-| ----------------- | ----------- | ---------------------------------------------- | ----- |
-| `id`              | UUID        | PK, DEFAULT `gen_random_uuid()`                |       |
-| `user_id`         | UUID        | NOT NULL, FK → `profiles.id` ON DELETE CASCADE |       |
-| `type`            | VARCHAR(50) | NOT NULL                                       |       |
-| `conversation_id` | UUID        | FK → `conversations.id` ON DELETE CASCADE      |       |
-| `message_id`      | UUID        | FK → `messages.id` ON DELETE CASCADE           |       |
-| `read_at`         | TIMESTAMPTZ | Nullable                                       |       |
-| `created_at`      | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`                      |       |
+| Column                | Type        | Constraints                                         | Notes               |
+| --------------------- | ----------- | --------------------------------------------------- | ------------------- |
+| `id`                  | UUID        | PK, DEFAULT `gen_random_uuid()`                     |                     |
+| `conversation_id`     | UUID        | NOT NULL, FK → `conversations.id` ON DELETE CASCADE |                     |
+| `sender_id`           | UUID        | NOT NULL, FK → `profiles.id` ON DELETE CASCADE      |                     |
+| `content`             | TEXT        | NOT NULL                                            | Plain text only     |
+| `reply_to_message_id` | UUID        | FK → `messages.id` ON DELETE SET NULL               |                     |
+| `status`              | VARCHAR(20) | NOT NULL, DEFAULT `'sent'`                          | Persistent DB state |
+| `is_edited`           | BOOLEAN     | NOT NULL, DEFAULT `false`                           |                     |
+| `edited_at`           | TIMESTAMPTZ | Nullable                                            |                     |
+| `deleted_at`          | TIMESTAMPTZ | Nullable                                            | Soft deletion       |
+| `created_at`          | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`                           |                     |
+| `updated_at`          | TIMESTAMPTZ | NOT NULL, DEFAULT `now()`, auto-trigger             |                     |
 
 ---
 
-## 3. Performance Indexes
+## 3. Final Bootstrap & Membership Authorization Model
 
-| Index Name                            | Table                  | Columns                              | Access Pattern                          |
-| ------------------------------------- | ---------------------- | ------------------------------------ | --------------------------------------- |
-| `idx_messages_conversation_created`   | `messages`             | `(conversation_id, created_at DESC)` | Message timeline rendering              |
-| `idx_conversation_members_user_convo` | `conversation_members` | `(user_id, conversation_id)`         | User's conversation list + RLS policies |
-| `idx_conversation_members_convo_user` | `conversation_members` | `(conversation_id, user_id)`         | Conversation participant lookups        |
-| `idx_message_reactions_message`       | `message_reactions`    | `(message_id)`                       | Reaction pill aggregation               |
-| `idx_notifications_user_created`      | `notifications`        | `(user_id, created_at DESC)`         | Notification feed                       |
-| `idx_profiles_username`               | `profiles`             | `(username)`                         | Username search/lookup                  |
+In TASK 11.2, the conversation membership insertion and update rules were hardened against arbitrary self-joins and role escalation:
 
-**RLS Policy Performance**: The `idx_conversation_members_user_convo` and `idx_conversation_members_convo_user` indexes directly support the RLS membership subqueries used across `conversations`, `messages`, `message_reactions`, and `message_attachments` policies.
+1. **Creator Self-Bootstrap**: When a user creates a new conversation (`conversations.created_by = auth.uid()`), they are allowed to insert their own membership row as `owner` (`user_id = auth.uid() AND role = 'owner'`).
+2. **Owner/Admin Member Addition**: Owners or admins of a conversation can add other users to that conversation.
+3. **Arbitrary Self-Join Prevention**: Arbitrary authenticated users CANNOT insert themselves into existing conversations created by others.
+4. **Anti-Role-Escalation**: Regular members updating their membership preferences (`is_pinned`, `is_favorite`, `is_muted`, `is_archived`, `last_read_at`) are prohibited from escalating their `role` column via a strict `WITH CHECK` comparison against the existing row.
 
 ---
 
-## 4. Row Level Security (RLS) Policy Model
+## 4. Row Level Security (RLS) Policy Summary
 
-All 7 tables have `ENABLE ROW LEVEL SECURITY`. Policies verify `auth.uid()` against ownership and membership relationships.
+All 7 tables have `ENABLE ROW LEVEL SECURITY`.
 
-### 4.1 Profiles
-
-| Operation | Policy            | Rule                                                   |
-| --------- | ----------------- | ------------------------------------------------------ |
-| SELECT    | All authenticated | `USING (true)` — public profile fields                 |
-| INSERT    | Own profile only  | `WITH CHECK (auth.uid() = id)`                         |
-| UPDATE    | Own profile only  | `USING (auth.uid() = id) WITH CHECK (auth.uid() = id)` |
-
-### 4.2 Conversations
-
-| Operation | Policy       | Rule                                       |
-| --------- | ------------ | ------------------------------------------ |
-| SELECT    | Members only | `USING (EXISTS member check)`              |
-| INSERT    | Creator only | `WITH CHECK (auth.uid() = created_by)`     |
-| UPDATE    | Members only | `USING + WITH CHECK (EXISTS member check)` |
-
-### 4.3 Conversation Members
-
-| Operation        | Policy              | Rule                                                                 |
-| ---------------- | ------------------- | -------------------------------------------------------------------- |
-| SELECT (own)     | Direct ownership    | `USING (auth.uid() = user_id)`                                       |
-| SELECT (fellows) | Shared membership   | `USING (conversation_id IN (SELECT ... WHERE user_id = auth.uid()))` |
-| INSERT           | Bootstrap or admin  | `WITH CHECK (auth.uid() = user_id OR EXISTS owner/admin check)`      |
-| UPDATE           | Own membership only | `USING + WITH CHECK (auth.uid() = user_id)`                          |
-| DELETE           | Self or admin       | `USING (auth.uid() = user_id OR EXISTS owner/admin check)`           |
-
-**Bootstrap Pattern**: When creating a new conversation, the creator inserts the first `conversation_members` row with `user_id = auth.uid()` and `role = 'owner'`. After bootstrap, only owners/admins can add additional members.
-
-### 4.4 Messages
-
-| Operation | Policy               | Rule                                                                                         |
-| --------- | -------------------- | -------------------------------------------------------------------------------------------- |
-| SELECT    | Conversation members | `USING (EXISTS member check)`                                                                |
-| INSERT    | Sender + member      | `WITH CHECK (auth.uid() = sender_id AND EXISTS member check)`                                |
-| UPDATE    | Sender + member      | `USING (auth.uid() = sender_id) WITH CHECK (auth.uid() = sender_id AND EXISTS member check)` |
-| DELETE    | Sender only          | `USING (auth.uid() = sender_id)`                                                             |
-
-**Hardened UPDATE**: The `WITH CHECK` clause on UPDATE enforces that `sender_id` cannot be changed (prevents impersonation) AND that `conversation_id` cannot be moved to a conversation the user doesn't belong to.
-
-### 4.5 Message Reactions
-
-| Operation | Policy                    | Rule                                           |
-| --------- | ------------------------- | ---------------------------------------------- |
-| SELECT    | Conversation members      | Via `messages` JOIN `conversation_members`     |
-| INSERT    | Own + conversation member | `auth.uid() = user_id AND EXISTS member check` |
-| DELETE    | Own only                  | `USING (auth.uid() = user_id)`                 |
-
-### 4.6 Message Attachments
-
-| Operation | Policy               | Rule                                       |
-| --------- | -------------------- | ------------------------------------------ |
-| SELECT    | Conversation members | Via `messages` JOIN `conversation_members` |
-| INSERT    | Conversation members | Via `messages` JOIN `conversation_members` |
-
-### 4.7 Notifications
-
-| Operation | Policy   | Rule                                        |
-| --------- | -------- | ------------------------------------------- |
-| SELECT    | Own only | `USING (auth.uid() = user_id)`              |
-| UPDATE    | Own only | `USING + WITH CHECK (auth.uid() = user_id)` |
+| Table                  | SELECT               | INSERT                               | UPDATE                                               | DELETE                           |
+| ---------------------- | -------------------- | ------------------------------------ | ---------------------------------------------------- | -------------------------------- |
+| `profiles`             | All authenticated    | Own id                               | Own id                                               | —                                |
+| `conversations`        | Members only         | Creator (`created_by = auth.uid()`)  | Members only                                         | —                                |
+| `conversation_members` | Own + fellow members | Creator bootstrap OR owner/admin add | Own prefs (no role change) OR owner role manage      | Self leave OR owner/admin remove |
+| `messages`             | Members only         | Sender + member                      | Sender + member (`sender_id` & `convo_id` immutable) | Sender only                      |
+| `message_reactions`    | Members only         | Member + own `user_id`               | —                                                    | Own `user_id` only               |
+| `message_attachments`  | Members only         | Member only                          | —                                                    | —                                |
+| `notifications`        | Recipient only       | System/Server                        | Recipient only (`read_at`)                           | —                                |
 
 ---
 
 ## 5. RLS Security Test Matrix
 
-| #   | Table         | Test                      | Actor             | Expected | Attack Vector            |
-| --- | ------------- | ------------------------- | ----------------- | -------- | ------------------------ |
-| P1  | profiles      | SELECT own                | User A            | ALLOW    | —                        |
-| P2  | profiles      | SELECT other              | User A→B          | ALLOW    | Public profile           |
-| P3  | profiles      | UPDATE own                | User A            | ALLOW    | —                        |
-| P4  | profiles      | UPDATE other              | User A→B          | DENY     | Cross-user mutation      |
-| CV1 | conversations | SELECT (member)           | User A            | ALLOW    | —                        |
-| CV2 | conversations | SELECT (not member)       | User C            | DENY     | Unauthorized access      |
-| CV3 | conversations | SELECT (not member)       | User A→Conv4      | DENY     | Cross-conversation       |
-| CM1 | members       | INSERT self (bootstrap)   | User A            | ALLOW    | —                        |
-| CM2 | members       | INSERT other (as owner)   | User A (owner)    | ALLOW    | —                        |
-| CM3 | members       | INSERT self into existing | User C            | ALLOW    | Bootstrap                |
-| CM4 | members       | INSERT other (not admin)  | User C→Conv4      | DENY     | Privilege escalation     |
-| CM5 | members       | UPDATE own prefs          | User A            | ALLOW    | —                        |
-| CM6 | members       | UPDATE other prefs        | User A→B          | DENY     | Cross-user               |
-| M1  | messages      | SELECT (member)           | User A            | ALLOW    | —                        |
-| M2  | messages      | SELECT (not member)       | User C            | DENY     | Unauthorized read        |
-| M3  | messages      | INSERT as self            | User A            | ALLOW    | —                        |
-| M4  | messages      | INSERT as other           | User A→B sender   | DENY     | Impersonation            |
-| M5  | messages      | UPDATE own content        | User A            | ALLOW    | —                        |
-| M6  | messages      | UPDATE other's msg        | User B→A msg      | DENY     | Cross-user edit          |
-| M7  | messages      | UPDATE sender_id          | User A            | DENY     | Impersonation via UPDATE |
-| M8  | messages      | UPDATE conversation_id    | User A            | DENY     | Message migration attack |
-| M9  | messages      | DELETE own                | User A            | ALLOW    | —                        |
-| M10 | messages      | DELETE other's            | User B→A msg      | DENY     | Cross-user deletion      |
-| R1  | reactions     | INSERT own                | User A            | ALLOW    | —                        |
-| R2  | reactions     | DELETE own                | User A            | ALLOW    | —                        |
-| R3  | reactions     | DELETE other's            | User A→B reaction | DENY     | Cross-user               |
-| A1  | attachments   | SELECT (member)           | User A            | ALLOW    | —                        |
-| A2  | attachments   | SELECT (not member)       | User C            | DENY     | Unauthorized             |
-| N1  | notifications | SELECT own                | User A            | ALLOW    | —                        |
-| N2  | notifications | SELECT other's            | User B→A          | DENY     | Cross-user               |
-| N3  | notifications | UPDATE own read_at        | User A            | ALLOW    | —                        |
+| #   | Test Scenario                            | Actor           | Expected | RLS Policy Rule                           |
+| --- | ---------------------------------------- | --------------- | -------- | ----------------------------------------- |
+| P1  | SELECT own profile                       | User A          | ALLOW    | `USING (true)`                            |
+| P2  | SELECT other profile                     | User A → B      | ALLOW    | Public profile fields                     |
+| P3  | UPDATE own profile                       | User A          | ALLOW    | `auth.uid() = id`                         |
+| P4  | UPDATE other profile                     | User A → B      | DENY     | `auth.uid() != id`                        |
+| C1  | INSERT conversation (created_by = self)  | User A          | ALLOW    | `auth.uid() = created_by`                 |
+| C2  | INSERT conversation (created_by = other) | User A → B      | DENY     | `auth.uid() != created_by`                |
+| C3  | SELECT conversation (member)             | User A          | ALLOW    | `EXISTS conversation_members`             |
+| C4  | SELECT conversation (non-member)         | User C          | DENY     | 0 rows returned                           |
+| M1  | Creator self-bootstrap as owner          | User A          | ALLOW    | Creator check + `role = 'owner'`          |
+| M2  | Arbitrary self-join into someone's chat  | User C → Conv 4 | DENY     | Not creator nor owner/admin               |
+| M3  | Owner adds new member                    | User B → User C | ALLOW    | Owner check                               |
+| M4  | Regular member role escalation           | User C → owner  | DENY     | Role immutable via `WITH CHECK`           |
+| M5  | Update own preferences (pinned)          | User C          | ALLOW    | `auth.uid() = user_id AND role unchanged` |
+| MS1 | Read messages in own chat                | User A          | ALLOW    | Member check                              |
+| MS2 | Read messages in other's chat            | User C          | DENY     | 0 rows returned                           |
+| MS3 | Send message as self                     | User A          | ALLOW    | `sender_id = auth.uid()`                  |
+| MS4 | Send message as someone else             | User A → B      | DENY     | `sender_id != auth.uid()`                 |
+| MS5 | Edit own message content                 | User A          | ALLOW    | `sender_id = auth.uid()`                  |
+| MS6 | Mutate sender_id on edit                 | User A → B      | DENY     | `WITH CHECK sender_id`                    |
+| MS7 | Mutate conversation_id on edit           | User A          | DENY     | `WITH CHECK member check`                 |
+| MS8 | Delete own message                       | User A          | ALLOW    | `sender_id = auth.uid()`                  |
+| MS9 | Delete someone else's message            | User B → A      | DENY     | `sender_id != auth.uid()`                 |
 
 ---
 
 ## 6. Grants & Data API Security
 
-Supabase automatically grants `SELECT`, `INSERT`, `UPDATE`, `DELETE` privileges to `anon` and `authenticated` roles on `public` schema tables via the Data API (PostgREST). RLS is the authorization layer that restricts actual row access.
-
-- **`anon` role**: Can access public tables but all RLS policies require `TO authenticated`, so anonymous access returns 0 rows on all 7 tables.
-- **`authenticated` role**: All policies scoped to `auth.uid()` identity verification.
-- **`service_role`**: Bypasses RLS. Used only server-side for admin operations. Never exposed to browser.
+- **`anon` role**: 0 rows returned across all 7 tables (all policies require `TO authenticated`).
+- **`authenticated` role**: Grants standard CRUD permissions gated 100% by RLS policies.
+- **`service_role`**: Bypasses RLS. Server-side only (never exposed to browser bundles).
 
 ---
 
-## 7. Seed Strategy
+## 7. Executed Local Validation & Limitations
 
-Seed data lives in [`supabase/seed.sql`](file:///d:/Nguyen-s-real-time-chat-app/supabase/seed.sql) (NOT in migrations).
-
-- Creates 5 test users in `auth.users` + `auth.identities` for local Supabase login
-- Creates corresponding `profiles` rows
-- Creates 4 conversations (2 direct, 2 group)
-- Creates 10 membership rows with varied roles
-- Creates 5 messages including a reply
-- Creates 4 reactions
-- Creates 1 attachment metadata row
-- Uses deterministic UUIDs for reproducible testing
-
-Run: `supabase db seed` or `psql $SUPABASE_DB_URL -f supabase/seed.sql`
-
----
-
-## 8. Search Preparation (NOT IMPLEMENTED YET)
-
-Future PostgreSQL full-text search options:
-
-1. `pg_trgm` extension with GIN index on `messages.content` for `LIKE`/`ILIKE` queries
-2. `tsvector` column on `messages` with GIN index for full-text search
-3. Supabase `.textSearch()` client method
-
-Current search operates entirely on frontend mock data.
+- **Docker Status**: Docker Desktop daemon was not active during TASK 11.2 execution (`failed to connect to docker API`).
+- **Validation Status**: `LOCAL DATABASE VALIDATION BLOCKED` — Local Supabase stack (`npx supabase start`) could not be launched due to absent Docker container engine.
+- **Static Schema Validation**: All SQL syntax, table structures, constraints, triggers, and RLS policies have been statically verified and linted.
+- **Automated Test Matrix**: 31 detailed test cases prepared in [`supabase/tests/rls_security_matrix.sql`](file:///d:/Nguyen-s-real-time-chat-app/supabase/tests/rls_security_matrix.sql) ready to execute against a live PostgreSQL instance upon authentication integration in TASK 12.

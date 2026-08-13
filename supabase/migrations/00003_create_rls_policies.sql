@@ -1,6 +1,6 @@
 -- Migration 00003: Row Level Security (RLS) Policies
 -- Project: Nguyen's Real-time Chat App
--- HARDENED in TASK 11.1: Fixed circular dependencies, tightened INSERT/UPDATE policies.
+-- HARDENED in TASK 11.2: Strict creator self-bootstrap, anti-arbitrary-self-join, anti-role-escalation.
 
 -- Enable RLS on all 7 tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -16,8 +16,7 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 -- ----------------------------------------------------
 -- Allow all authenticated users to view profiles (for user discovery & chat headers).
 -- Decision: display_name, username, avatar_path, bio, presence_status, custom_status
--- are considered public profile fields. The profiles table does NOT contain email
--- or private credentials — those live in auth.users which is not exposed via Data API.
+-- are public profile fields. Private credentials/emails live exclusively in auth.users.
 CREATE POLICY "Profiles are viewable by authenticated users"
   ON public.profiles FOR SELECT
   TO authenticated
@@ -53,6 +52,7 @@ CREATE POLICY "Conversations viewable by members"
   );
 
 -- Authenticated users can create conversations (must be the creator)
+-- Prevents User A creating a conversation with created_by = User B
 CREATE POLICY "Users can create conversations"
   ON public.conversations FOR INSERT
   TO authenticated
@@ -81,20 +81,14 @@ CREATE POLICY "Members can update conversation metadata"
 -- ----------------------------------------------------
 -- CONVERSATION MEMBERS POLICIES
 -- ----------------------------------------------------
--- IMPORTANT: conversation_members SELECT cannot use a self-referential subquery
--- on the same table because RLS would create infinite recursion.
--- Instead, we use a direct ownership check: you can see membership rows
--- where you ARE the member (your own rows), or where you share a conversation.
--- To avoid recursion, we use a security-safe pattern:
--- A user can always see their own membership rows.
+-- Non-recursive SELECT policies for conversation membership:
+-- 1. A user can see their own membership rows directly.
 CREATE POLICY "Users can see their own memberships"
   ON public.conversation_members FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
--- A user can also see other members' rows for conversations they belong to.
--- This avoids infinite recursion by checking the current user's own row directly.
--- NOTE: PostgreSQL evaluates multiple SELECT policies with OR logic.
+-- 2. A user can see fellow members' rows for conversations they belong to.
 CREATE POLICY "Members can see fellow members"
   ON public.conversation_members FOR SELECT
   TO authenticated
@@ -106,19 +100,29 @@ CREATE POLICY "Members can see fellow members"
     )
   );
 
--- CONVERSATION MEMBER BOOTSTRAP POLICY:
--- When creating a new conversation, the creator must be able to insert the
--- initial membership row. This policy allows:
--- 1. A user inserting themselves (user_id = auth.uid()) — always allowed for bootstrap
--- 2. An existing owner/admin adding other users to a conversation they manage
-CREATE POLICY "Users can bootstrap or admins can add members"
+-- CONVERSATION MEMBER BOOTSTRAP & INSERT POLICY (HARDENED IN TASK 11.2):
+-- Prevents arbitrary self-joining of existing conversations created by others.
+-- Allowed cases:
+--   CASE A (Creator Self-Bootstrap): User is inserting themselves (user_id = auth.uid())
+--          INTO a conversation created by themselves (conversations.created_by = auth.uid()),
+--          AND role must be 'owner'.
+--   CASE B (Owner/Admin Member Addition): User has owner or admin role in target conversation.
+CREATE POLICY "Creator bootstrap or owner/admin add members"
   ON public.conversation_members FOR INSERT
   TO authenticated
   WITH CHECK (
-    -- Case 1: User is inserting themselves (conversation bootstrap or joining)
-    auth.uid() = user_id
+    -- CASE A: Creator bootstrapping their own membership as owner
+    (
+      auth.uid() = user_id
+      AND role = 'owner'
+      AND EXISTS (
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = conversation_members.conversation_id
+        AND c.created_by = auth.uid()
+      )
+    )
     OR
-    -- Case 2: An owner or admin of the conversation is adding another user
+    -- CASE B: Existing owner/admin adding another user to their conversation
     EXISTS (
       SELECT 1 FROM public.conversation_members cm
       WHERE cm.conversation_id = conversation_members.conversation_id
@@ -127,13 +131,42 @@ CREATE POLICY "Users can bootstrap or admins can add members"
     )
   );
 
--- Users can update their own membership preferences (pinned, favorite, muted, archived, last_read_at)
--- WITH CHECK ensures user_id cannot be changed
-CREATE POLICY "Users can update their own conversation membership"
+-- CONVERSATION MEMBER UPDATE POLICY (HARDENED IN TASK 11.2 - ANTI ROLE ESCALATION):
+-- Prevents regular members from escalating their role (e.g. member -> owner/admin).
+-- Allowed cases:
+--   CASE A: User updating own preferences (is_favorite, is_pinned, is_muted, is_archived, last_read_at)
+--          WITHOUT changing role.
+--   CASE B: Existing owner updating member role.
+CREATE POLICY "Users update own preferences or owners manage roles"
   ON public.conversation_members FOR UPDATE
   TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM public.conversation_members cm
+      WHERE cm.conversation_id = conversation_members.conversation_id
+      AND cm.user_id = auth.uid()
+      AND cm.role = 'owner'
+    )
+  )
+  WITH CHECK (
+    -- User updating own row cannot change role
+    (
+      auth.uid() = user_id
+      AND role = (
+        SELECT cm.role FROM public.conversation_members cm
+        WHERE cm.id = conversation_members.id
+      )
+    )
+    OR
+    -- Owner managing member roles
+    EXISTS (
+      SELECT 1 FROM public.conversation_members cm
+      WHERE cm.conversation_id = conversation_members.conversation_id
+      AND cm.user_id = auth.uid()
+      AND cm.role = 'owner'
+    )
+  );
 
 -- Members can remove themselves; owners/admins can remove others
 CREATE POLICY "Members can leave or admins can remove members"
@@ -178,10 +211,7 @@ CREATE POLICY "Members can insert messages"
   );
 
 -- Sender can update their own messages (edit content)
--- HARDENED: WITH CHECK enforces sender_id AND conversation_id immutability.
--- Prevents attack vectors:
---   UPDATE messages SET sender_id = <other_user>  → DENIED (sender_id must stay auth.uid())
---   UPDATE messages SET conversation_id = <other>  → DENIED (must still be member of conversation)
+-- WITH CHECK enforces sender_id AND conversation_id immutability.
 CREATE POLICY "Sender can edit their own messages"
   ON public.messages FOR UPDATE
   TO authenticated
