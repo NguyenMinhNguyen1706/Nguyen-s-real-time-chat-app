@@ -144,7 +144,7 @@ PostgreSQL (RLS-protected) + Supabase Realtime + Supabase Storage
 
 ## 5. Upcoming Backend Phases
 
-- **TASK 12**: Authentication + Supabase Session Integration (NOT IMPLEMENTED YET)
+- **TASK 12**: Authentication + Supabase Session Integration (**COMPLETE — `agent/task-12-authentication`**)
 - **TASK 13**: Database Repository Integration (NOT IMPLEMENTED YET)
 - **TASK 14**: Supabase Realtime Messages & Typing Indicators (NOT IMPLEMENTED YET)
 - **TASK 15**: Supabase Storage for File Attachments (NOT IMPLEMENTED YET)

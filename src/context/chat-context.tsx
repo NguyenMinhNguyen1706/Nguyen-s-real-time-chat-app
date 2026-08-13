@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { useAuth } from "@/context/auth-context";
 import {
   loadUserProfile,
   loadUserSettings,
@@ -79,6 +80,7 @@ interface ChatContextType {
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
+  const { profile: authProfile } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile);
   const [userPreferences, setUserPreferences] = useState<UserSettings>(loadUserSettings);
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(null);
@@ -99,17 +101,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchScopeConversationId, setSearchScopeConversationId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (authProfile) {
+      setUserProfile(authProfile);
+    }
+  }, [authProfile]);
+
   const fetchLatestData = async (filter = categoryFilter, query = searchQuery, sort = sortBy) => {
     const [user, list] = await Promise.all([
       conversationRepository.getCurrentUser(),
       conversationRepository.getConversations(filter, query, sort),
     ]);
+    const activeProfile = authProfile || userProfile;
     const mergedUser: UserSummary = {
       ...user,
-      name: userProfile.name,
-      avatarUrl: userProfile.avatarUrl,
-      statusMessage: userProfile.statusMessage,
-      presenceStatus: userProfile.presenceStatus,
+      id: activeProfile.id || user.id,
+      name: activeProfile.name || user.name,
+      username: activeProfile.username || user.username,
+      avatarUrl: activeProfile.avatarUrl || user.avatarUrl,
+      statusMessage: activeProfile.statusMessage || user.statusMessage,
+      presenceStatus: activeProfile.presenceStatus || user.presenceStatus,
     };
     setCurrentUser(mergedUser);
     setConversations(list);
@@ -123,12 +134,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       conversationRepository.getConversations(categoryFilter, searchQuery, sortBy),
     ]).then(([user, list]) => {
       if (isMounted) {
+        const activeProfile = authProfile || userProfile;
         const mergedUser: UserSummary = {
           ...user,
-          name: userProfile.name,
-          avatarUrl: userProfile.avatarUrl,
-          statusMessage: userProfile.statusMessage,
-          presenceStatus: userProfile.presenceStatus,
+          id: activeProfile.id || user.id,
+          name: activeProfile.name || user.name,
+          username: activeProfile.username || user.username,
+          avatarUrl: activeProfile.avatarUrl || user.avatarUrl,
+          statusMessage: activeProfile.statusMessage || user.statusMessage,
+          presenceStatus: activeProfile.presenceStatus || user.presenceStatus,
         };
         setCurrentUser(mergedUser);
         setConversations(list);
@@ -139,7 +153,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [categoryFilter, searchQuery, sortBy, userProfile]);
+  }, [categoryFilter, searchQuery, sortBy, userProfile, authProfile]);
 
   useEffect(() => {
     let isMounted = true;
